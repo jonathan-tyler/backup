@@ -1,0 +1,25 @@
+{
+    "name": "backup",
+    "image": "mcr.microsoft.com/devcontainers/go:1.25-trixie",
+    "containerUser": "vscode",
+    "remoteUser": "vscode",
+    "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind",
+    "workspaceFolder": "/workspace/linux/backup",
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y restic && sudo install -d -m 0755 -o vscode -g vscode /home/vscode/.cache && sudo chown -R vscode:vscode /home/vscode/.cache",
+    "containerEnv": {
+        "GOCACHE": "/home/vscode/.cache/go-build",
+        "GOMODCACHE": "/go/pkg/mod"
+    },
+    "mounts": [
+        "type=volume,target=/home/vscode/.cache",
+        "type=volume,target=/go/pkg"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "davidanson.vscode-markdownlint",
+                "golang.go"
+            ]
+        }
+    }
+}

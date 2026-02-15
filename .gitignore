@@ -1,0 +1,21 @@
+# Go build artifacts
+bin/
+build/
+dist/
+
+# Go test coverage and profiling
+coverage.out
+*.prof
+
+# Go modules cache and workspace files
+go.work
+go.work.sum
+
+# IDE/editor metadata
+.idea/
+
+# macOS
+.DS_Store
+
+DESIGN.md
+TODO.md
