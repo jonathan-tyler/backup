@@ -2,6 +2,10 @@
 
 Current scope is `notes + repos` into `r-hot-notes-repos`.
 
+Entrypoint model: use the single `wsl-backup` executable with subcommands
+(`backup`, `report`, `forget-prune`, `restore-smoke`) rather than separate
+per-action scripts.
+
 ## 1) One-time setup
 
 1. Copy the environment template:

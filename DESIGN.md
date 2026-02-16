@@ -82,7 +82,7 @@ Use separate restic repositories by class and temperature.
 ### KeePassXC integration (pragmatic)
 - Store each repo passphrase and cloud key in KeePassXC entries.
 - Use dedicated attributes per repo (`RESTIC_PASSWORD`, `RESTIC_REPOSITORY`, backend keys).
-- Use a small wrapper script that reads secrets at runtime from a local secure export step.
+- Use the `wsl-backup` CLI to resolve secrets at runtime from a local secure export step.
 
 ### Secret separation
 - Keep passphrases and cloud API credentials separate from source data host where possible.
@@ -346,7 +346,8 @@ Exit criteria:
 
 ## 17) Minimal WSL-friendly command skeleton
 
-These are examples for Phase 1 baseline and should be wrapped by scripts later.
+These are examples for a Phase 1 baseline and should be represented as
+`wsl-backup` subcommands.
 
 ```bash
 # Set repository and password source (example only)
