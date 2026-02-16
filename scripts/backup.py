@@ -3,19 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
+from pathlib import Path
 
-try:
-    from .common import ensure_repo_initialized
-    from .common import load_config, now_iso, run_restic, timestamp
-except ImportError:
-    from common import ensure_repo_initialized
-    from common import load_config, now_iso, run_restic, timestamp
+from .commands.factory import CommandFactory
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run notes/repos backup")
+    parser = argparse.ArgumentParser(description="Run backup")
     parser.add_argument(
         "env_file",
         nargs="?",
@@ -26,50 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(env_file: str | None = None) -> int:
-    config = load_config(env_file)
-    ensure_repo_initialized(config)
-
-    log_file = config.report_dir / f"backup-{timestamp()}.log"
-    exclude_common = config.project_root / "config" / "excludes" / "common.exclude"
-    exclude_notes_repos = (
-        config.project_root / "config" / "excludes" / "notes-repos.exclude"
-    )
-
-    print(f"Starting backup at {now_iso()}")
-    print(f"Repo: {config.restic_repository}")
-
-    cmd = [
-        "backup",
-        str(config.source_notes),
-        str(config.source_repos),
-        "--exclude-file",
-        str(exclude_common),
-        "--exclude-file",
-        str(exclude_notes_repos),
-        "--tag",
-        "hot",
-        "--tag",
-        "notes-repos",
-        "--json",
-    ]
-
-    with log_file.open("w", encoding="utf-8") as handle:
-        handle.write(f"Starting backup at {now_iso()}\n")
-        handle.write(f"Repo: {config.restic_repository}\n")
-        process = run_restic(config, cmd, capture_output=True, check=False)
-        if process.stdout:
-            print(process.stdout, end="")
-            handle.write(process.stdout)
-        if process.stderr:
-            print(process.stderr, end="", file=sys.stderr)
-            handle.write(process.stderr)
-        if process.returncode != 0:
-            raise SystemExit(process.returncode)
-        handle.write(f"Backup completed at {now_iso()}\n")
-
-    print(f"Backup completed at {now_iso()}")
-    print(f"Log written: {log_file}")
-    return 0
+    project_root = Path(__file__).resolve().parent.parent
+    factory = CommandFactory(project_root)
+    command = factory.create("backup", env_file)
+    return command.run()
 
 
 def main() -> int:
