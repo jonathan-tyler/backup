@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 from typing import Iterable
+from typing import cast
 
 from .backup_config import BackupConfig
 
@@ -35,14 +36,14 @@ class ResticClient:
         print(f"Initializing repository: {self._config.restic_repository}")
         self.run(["init"])
 
-    def snapshots_json(self) -> list[dict]:
+    def snapshots_json(self) -> list[dict[str, object]]:
         result = self.run(["snapshots", "--json"], capture_output=True)
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Could not parse restic snapshots JSON: {exc}") from exc
         if isinstance(payload, list):
-            return payload
+            return cast(list[dict[str, object]], payload)
         raise SystemExit("Unexpected snapshots payload format from restic")
 
     def _build_env(self) -> dict[str, str]:

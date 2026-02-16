@@ -11,9 +11,20 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 wsl-backup = "scripts.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+markers = [
+	"integration: end-to-end tests using real restic in a temporary directory",
+]

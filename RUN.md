@@ -76,3 +76,23 @@ wsl-backup backup /path/to/backup.env
 
 - Backup repo: `RESTIC_REPOSITORY` in `config/backup.env`
 - Reports and logs: `REPORT_DIR` in `config/backup.env`
+
+## 6) Test commands
+
+Fast unit tests:
+
+```bash
+pytest -q tests -k "not integration"
+```
+
+Integration tests (requires `restic` in container):
+
+```bash
+pytest -q tests -k integration
+```
+
+Full suite:
+
+```bash
+pytest -q
+```

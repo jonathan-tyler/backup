@@ -18,7 +18,7 @@ class ResticClientProtocol(Protocol):
     def ensure_initialized(self) -> None:
         ...
 
-    def snapshots_json(self) -> list[dict]:
+    def snapshots_json(self) -> list[dict[str, object]]:
         ...
 
 
