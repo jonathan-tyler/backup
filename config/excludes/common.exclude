@@ -1,0 +1,19 @@
+# Caches and temporary files
+**/.cache/**
+**/Cache/**
+**/tmp/**
+**/*.tmp
+**/*.swp
+
+# Build artifacts
+**/node_modules/**
+**/dist/**
+**/build/**
+
+# VCS internals not needed for most restores
+**/.git/objects/**
+**/.git/lfs/objects/**
+
+# OS noise
+**/Thumbs.db
+**/Desktop.ini

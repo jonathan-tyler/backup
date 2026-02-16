@@ -1,0 +1,14 @@
+# Local editor/project caches
+**/.idea/**
+**/.vscode-test/**
+**/.pytest_cache/**
+**/.mypy_cache/**
+
+# Python and JS transient outputs
+**/__pycache__/**
+**/*.pyc
+**/.next/**
+
+# Optional heavy folders (uncomment if needed)
+# **/venv/**
+# **/.venv/**
