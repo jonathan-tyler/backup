@@ -5,12 +5,16 @@
     "remoteUser": "vscode",
     "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind",
     "workspaceFolder": "/workspace/linux/backup",
-    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y restic && sudo install -d -m 0755 -o vscode -g vscode /home/vscode/.cache && sudo chown -R vscode:vscode /home/vscode/.cache && python -m venv .venv && .venv/bin/python -m pip install --upgrade pip pytest",
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y restic && sudo install -d -m 0755 -o vscode -g vscode /home/vscode/.cache && sudo chown -R vscode:vscode /home/vscode/.cache && python -m venv .venv && .venv/bin/python -m pip install --upgrade pip -r requirements-dev.txt",
+    "containerEnv": {
+        "PYTHONPYCACHEPREFIX": "/home/vscode/.cache/pycache",
+        "PYTEST_ADDOPTS": "-o cache_dir=/home/vscode/.cache/pytest",
+        "COVERAGE_FILE": "/home/vscode/.cache/coverage/.coverage"
+    },
     "mounts": [
-        "type=volume,source=python-pip-cache,target=/home/vscode/.cache/pip",
+        "type=volume,target=/home/vscode/.cache",
         "type=volume,target=/workspace/linux/backup/.venv",
-        "type=volume,target=/workspace/linux/backup/wsl_backup_cli.egg-info",
-        "type=volume,target=/workspace/linux/backup/scripts/__pycache__"
+        "type=volume,target=/workspace/linux/backup/wsl_backup_cli.egg-info"
     ],
     "customizations": {
         "vscode": {

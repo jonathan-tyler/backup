@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
 
 [project.scripts]
 wsl-backup = "scripts.cli:main"
