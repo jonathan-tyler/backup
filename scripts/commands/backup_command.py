@@ -22,20 +22,19 @@ class BackupCommand(Command):
         self._restic.ensure_initialized()
 
         log_file = self._config.report_dir / f"backup-{self._clock.timestamp()}.log"
-        exclude_common = self._config.project_root / "config" / "excludes" / "common.exclude"
-        exclude_notes = self._config.project_root / "config" / "excludes" / "notes-repos.exclude"
 
         print(f"Starting backup at {self._clock.now_iso()}")
         print(f"Repo: {self._config.restic_repository}")
+        print(f"Sources include file: {self._config.source_include_file}")
 
         args = [
             "backup",
-            str(self._config.source_notes),
-            str(self._config.source_repos),
+            "--files-from",
+            str(self._config.source_include_file),
             "--exclude-file",
-            str(exclude_common),
+            str(self._config.exclude_common_file),
             "--exclude-file",
-            str(exclude_notes),
+            str(self._config.exclude_set_file),
             "--tag",
             "hot",
             "--tag",
@@ -46,6 +45,8 @@ class BackupCommand(Command):
         with log_file.open("w", encoding="utf-8") as handle:
             handle.write(f"Starting backup at {self._clock.now_iso()}\n")
             handle.write(f"Repo: {self._config.restic_repository}\n")
+            handle.write(
+                f"Sources include file: {self._config.source_include_file}\n")
             process = self._restic.run(args, capture_output=True, check=False)
             if process.stdout:
                 print(process.stdout, end="")

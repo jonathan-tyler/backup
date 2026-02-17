@@ -34,16 +34,18 @@ class RestoreSmokeCommand(Command):
                 print("No snapshots found. Run backup first.")
                 return 1
 
+            restore_args = [
+                "restore",
+                "latest",
+                "--target",
+                str(restore_dir),
+            ]
+            for source_path in self._config.source_paths:
+                restore_args.extend(["--include", str(source_path)])
+            restore_args.append("--verify")
+
             self._restic.run(
-                [
-                    "restore",
-                    "latest",
-                    "--target",
-                    str(restore_dir),
-                    "--include",
-                    str(self._config.source_notes),
-                    "--verify",
-                ]
+                restore_args
             )
 
             if not restore_dir.is_dir():

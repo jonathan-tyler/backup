@@ -1,0 +1,3 @@
+# One source path per line. Lines can be absolute paths or relative to this file.
+$HOME/notes
+$HOME/repos

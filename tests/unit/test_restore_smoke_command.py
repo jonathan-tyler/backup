@@ -76,8 +76,12 @@ def test_restore_smoke_runs_restore_with_include(
     restore_args = restic.calls[1]
     assert restore_args[:2] == ["restore", "latest"]
     assert "--target" in restore_args
-    assert "--include" in restore_args
-    assert str(sample_config.source_notes) in restore_args
+    include_paths = [
+        restore_args[index + 1]
+        for index, value in enumerate(restore_args)
+        if value == "--include"
+    ]
+    assert include_paths == [str(path) for path in sample_config.source_paths]
 
 
 def test_restore_smoke_cleans_temp_dir(

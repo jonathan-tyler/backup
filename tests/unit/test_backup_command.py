@@ -68,8 +68,8 @@ def test_backup_command_runs_and_writes_log(
     first_args = restic.run_calls[0]["args"]
     assert first_args[:3] == [
         "backup",
-        str(sample_config.source_notes),
-        str(sample_config.source_repos),
+        "--files-from",
+        str(sample_config.source_include_file),
     ]
 
     log_file = sample_config.report_dir / "backup-20260216-010203.log"

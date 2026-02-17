@@ -35,8 +35,8 @@ class ReportCommand(Command):
         if len(snapshots) < 2:
             lines.append("Not enough snapshots for diff (need at least 2).")
         else:
-            prev_snap = snapshots[-2]["id"]
-            curr_snap = snapshots[-1]["id"]
+            prev_snap = str(snapshots[-2]["id"])
+            curr_snap = str(snapshots[-1]["id"])
             lines.extend(
                 [
                     f"Previous snapshot: {prev_snap}",
@@ -70,7 +70,7 @@ class ReportCommand(Command):
 
         threshold = SizeParser.parse_bytes(self._config.large_file_threshold)
         large_files = self._scanner.find_large_files(
-            [self._config.source_notes, self._config.source_repos],
+            self._config.source_paths,
             threshold,
         )
 
@@ -81,7 +81,7 @@ class ReportCommand(Command):
             lines.append("(none)")
 
         hotspots = self._scanner.find_hotspots(
-            [self._config.source_notes, self._config.source_repos],
+            self._config.source_paths,
             self._config.hotspot_threshold,
         )
         lines.extend(["", f"Small-file hotspots over {self._config.hotspot_threshold} files"])

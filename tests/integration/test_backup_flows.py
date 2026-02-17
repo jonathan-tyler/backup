@@ -57,10 +57,15 @@ def test_backup_report_and_prune_flow(tmp_path: Path, require_restic: None) -> N
     try:
         source_notes = data_root / "notes"
         source_repos = data_root / "repos"
+        source_include_file = data_root / "sources.include"
         report_dir = data_root / "reports"
         repository_dir = data_root / "restic-repo"
         source_notes.mkdir(parents=True)
         source_repos.mkdir(parents=True)
+        source_include_file.write_text(
+            f"{source_notes}\n{source_repos}\n",
+            encoding="utf-8",
+        )
 
         (source_notes / "note-1.txt").write_text("first", encoding="utf-8")
         (source_repos / "repo-file-1.txt").write_text("one", encoding="utf-8")
@@ -71,8 +76,9 @@ def test_backup_report_and_prune_flow(tmp_path: Path, require_restic: None) -> N
             {
                 "RESTIC_REPOSITORY": str(repository_dir),
                 "RESTIC_PASSWORD_COMMAND": "printf integration-password",
-                "SOURCE_NOTES": str(source_notes),
-                "SOURCE_REPOS": str(source_repos),
+                "SOURCE_INCLUDE_FILE": str(source_include_file),
+                "EXCLUDE_COMMON_FILE": str(project_root / "config" / "excludes" / "common.exclude"),
+                "EXCLUDE_SET_FILE": str(project_root / "config" / "excludes" / "notes-repos.exclude"),
                 "REPORT_DIR": str(report_dir),
                 "LARGE_FILE_THRESHOLD": "1",
                 "HOTSPOT_THRESHOLD": "1",
@@ -119,10 +125,15 @@ def test_restore_smoke_restores_file_contents(
     try:
         source_notes = data_root / "notes"
         source_repos = data_root / "repos"
+        source_include_file = data_root / "sources.include"
         report_dir = data_root / "reports"
         repository_dir = data_root / "restic-repo"
         source_notes.mkdir(parents=True)
         source_repos.mkdir(parents=True)
+        source_include_file.write_text(
+            f"{source_notes}\n{source_repos}\n",
+            encoding="utf-8",
+        )
 
         note_file = source_notes / "restore-me.txt"
         note_file.write_text("restore-content", encoding="utf-8")
@@ -133,8 +144,9 @@ def test_restore_smoke_restores_file_contents(
             {
                 "RESTIC_REPOSITORY": str(repository_dir),
                 "RESTIC_PASSWORD_COMMAND": "printf integration-password",
-                "SOURCE_NOTES": str(source_notes),
-                "SOURCE_REPOS": str(source_repos),
+                "SOURCE_INCLUDE_FILE": str(source_include_file),
+                "EXCLUDE_COMMON_FILE": str(project_root / "config" / "excludes" / "common.exclude"),
+                "EXCLUDE_SET_FILE": str(project_root / "config" / "excludes" / "notes-repos.exclude"),
                 "REPORT_DIR": str(report_dir),
                 "LARGE_FILE_THRESHOLD": "2G",
                 "HOTSPOT_THRESHOLD": "5000",

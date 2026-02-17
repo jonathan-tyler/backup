@@ -10,8 +10,10 @@ class BackupConfig:
     env_file: Path
     restic_repository: str
     restic_password_command: str
-    source_notes: Path
-    source_repos: Path
+    source_include_file: Path
+    source_paths: list[Path]
+    exclude_common_file: Path
+    exclude_set_file: Path
     report_dir: Path
     large_file_threshold: str
     hotspot_threshold: int
