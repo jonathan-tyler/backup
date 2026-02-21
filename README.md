@@ -17,6 +17,11 @@ Simple wrapper around `restic`. Extension for `wsl-sys-cli`.
 - Test sandbox
 - Unit & integration tests
 
+### Optional Starship Host Config in Dev Container
+
+If you personally use Starship and want to reuse your host `starship.toml`, uncomment the optional mount
+line in [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json).
+
 ## Installation
 
 Build and install the executable as `backup`:

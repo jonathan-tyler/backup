@@ -6,13 +6,34 @@ ARG USER_GID=1000
 
 RUN if ! id -u ${USERNAME} >/dev/null 2>&1; then \
     groupadd --gid ${USER_GID} ${USERNAME} && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME}; \
+    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /usr/bin/zsh ${USERNAME}; \
     fi \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
     golang-go \
+    starship \
+    zsh \
+    zsh-autosuggestions \
+    && git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /home/${USERNAME}/.oh-my-zsh \
+    && printf '%s\n' \
+    'export ZSH="$HOME/.oh-my-zsh"' \
+    'ZSH_THEME="robbyrussell"' \
+    'plugins=(git)' \
+    'source "$ZSH/oh-my-zsh.sh"' \
+    'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh' \
+    'if [ -f "$HOME/.config/starship.toml" ]; then export STARSHIP_CONFIG="$HOME/.config/starship.toml"; fi' \
+    'if command -v starship >/dev/null 2>&1; then eval "$(starship init zsh)"; fi' \
+    > /home/${USERNAME}/.zshrc \
+    && printf '%s\n' \
+    'git rebase --interactive --autosquash --keep-base origin/main' \
+    'git commit --fixup 1234' \
+    > /home/${USERNAME}/.zsh_history \
+    && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.zshrc \
+    && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.zsh_history \
+    && chmod 600 /home/${USERNAME}/.zsh_history \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.oh-my-zsh \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS project

@@ -17,7 +17,9 @@
     "postCreateCommand": "install -d -m 0755 /home/developer/.cache /home/developer/go",
     "mounts": [
         "type=volume,target=/home/developer/.cache",
-        "type=volume,target=/home/developer/go"
+        "type=volume,target=/home/developer/go",
+        // Optional: enable this mount locally if you have a host starship config.
+        "type=bind,source=${localEnv:HOME}/.config/starship.toml,target=/home/developer/.config/starship.toml,readonly"
     ],
     "customizations": {
         "vscode": {
