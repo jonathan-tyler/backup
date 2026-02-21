@@ -16,11 +16,17 @@ type Command struct {
 func usage() string {
 	return strings.Join([]string{
 		"Usage:",
-		"  wsl-backup-cli run <daily|weekly|monthly>",
-		"  wsl-backup-cli report <daily|weekly|monthly>",
-		"  wsl-backup-cli restore <target>",
-		"  wsl-backup-cli help",
-		"  wsl-backup-cli --help",
+		"  backup run <daily|weekly|monthly>",
+		"  backup report <daily|weekly|monthly>",
+		"  backup restore <target>",
+		"  backup help",
+		"  backup --help",
+		"",
+		"As wsl-sys-cli extension:",
+		"  sys backup run <daily|weekly|monthly>",
+		"  sys backup report <daily|weekly|monthly>",
+		"  sys backup restore <target>",
+		"  sys backup --help",
 	}, "\n")
 }
 

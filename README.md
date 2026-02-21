@@ -8,7 +8,7 @@ Simple wrapper around `restic`. Extension for `wsl-sys-cli`.
 - Developed as an extension for wsl-sys-cli
 - Denylist approach via exclude & include lists
 - Daily, weekly, monthly commands with different retention policies
-- Diff viewer
+- Diff report for new items and another for excluded items
 - Integration with keepass-xc
 
 ## Development Features
@@ -17,12 +17,50 @@ Simple wrapper around `restic`. Extension for `wsl-sys-cli`.
 - Test sandbox
 - Unit & integration tests
 
-## Usage
+## Installation
+
+Build and install the executable as `backup`:
 
 ```sh
-go run . run daily
-go run . report weekly
-go run . restore /path/to/target
+go build -o backup .
+sudo install -m 0755 backup /usr/local/bin/backup
+```
+
+Verify:
+
+```sh
+backup --help
+```
+
+## Usage (Standalone Executable)
+
+Run the CLI directly as `backup`.
+
+```text
+backup run <daily|weekly|monthly>
+backup report <daily|weekly|monthly>
+backup restore <target>
+backup help
+backup --help
+```
+
+Examples:
+
+```sh
+backup run daily
+backup report weekly
+backup restore /path/to/target
+```
+
+## Usage (wsl-sys-cli Extension)
+
+When installed as an extension for `wsl-sys-cli`, run the same arguments through `sys backup`.
+
+```sh
+sys backup run daily
+sys backup report weekly
+sys backup restore /path/to/target
+sys backup --help
 ```
 
 ## Development
