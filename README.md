@@ -88,6 +88,24 @@ BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationWSLDailyResti
 BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationWindowsDailyResticFlow -v ./tests/integration/...
 ```
 
+Build output binaries in `out/` (ignored by git):
+
+```sh
+tests/manual/build_binaries.sh
+ls -lh out/
+```
+
+Generated artifacts:
+
+- `out/backup-linux-amd64`
+- `out/backup-windows-amd64.exe`
+
+For Windows manual testing, open this repo in Windows VS Code and run the Windows artifact directly.
+
+Manual integration scripts in `tests/manual/` now build `out/` binaries first and pass `BACKUP_BINARY`
+into integration tests. Set `SKIP_OUT_BUILD=1` to skip prebuild, or set `BACKUP_BINARY` explicitly to
+override which binary is exercised.
+
 ## Configuration (Scaffold)
 
 - Default config path in WSL/Linux: `~/.config/backup/config.yaml`

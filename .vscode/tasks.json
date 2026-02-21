@@ -1,0 +1,73 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-out-binaries",
+            "type": "shell",
+            "command": "${workspaceFolder}/tests/manual/build_binaries.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "run-out-linux-help",
+            "type": "shell",
+            "command": "${workspaceFolder}/out/backup-linux-amd64 --help",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "manual-wsl-test",
+            "type": "shell",
+            "command": "${workspaceFolder}/tests/manual/run_wsl_integration_pause.sh",
+            "dependsOn": [
+                "build-out-binaries"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "manual-wsl-links-test",
+            "type": "shell",
+            "command": "${workspaceFolder}/tests/manual/run_wsl_links_integration_pause.sh",
+            "dependsOn": [
+                "build-out-binaries"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "manual-windows-links-test",
+            "type": "shell",
+            "command": "${workspaceFolder}/tests/manual/run_windows_links_integration.sh",
+            "dependsOn": [
+                "build-out-binaries"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "manual-windows-binary-note",
+            "type": "shell",
+            "command": "echo Built Windows binary at out/backup-windows-amd64.exe; echo Open this repo in Windows VS Code and run that .exe there with your Windows manual tests.",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

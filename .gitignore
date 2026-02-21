@@ -2,6 +2,7 @@
 bin/
 build/
 dist/
+out/
 
 # Go test coverage and profiling
 coverage.out
