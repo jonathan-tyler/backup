@@ -78,3 +78,22 @@ sys backup --help
 go test ./...
 go build ./...
 ```
+
+Integration tests (tagged):
+
+```sh
+go test ./tests/unit/...
+go test -tags=integration ./tests/integration/...
+BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationWSLDailyResticFlow -v ./tests/integration/...
+BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationWindowsDailyResticFlow -v ./tests/integration/...
+```
+
+## Configuration (Scaffold)
+
+- Default config path in WSL/Linux: `~/.config/backup/config.yaml`
+- Default config path in Windows: `%APPDATA%\\backup\\config.yaml`
+- Optional override for both: `BACKUP_CONFIG=/custom/path/config.yaml`
+- Starter template: [config.example.yaml](config.example.yaml)
+
+Current status: config loading/validation is scaffolded for `run` planning only.
+Backup execution is not implemented yet.

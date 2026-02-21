@@ -1,0 +1,22 @@
+# Copy to ~/.config/backup/config.yaml (WSL/Linux)
+# or %APPDATA%\backup\config.yaml (Windows).
+#
+# This file is scaffolding for upcoming execution support.
+# Current CLI validates profile presence but does not execute backups yet.
+
+profiles:
+  wsl:
+    repository: /path/to/restic-repo
+    include:
+      - /home/<user>
+    exclude:
+      - /home/<user>/.cache
+    use_fs_snapshot: false
+
+  windows:
+    repository: C:\\path\\to\\restic-repo
+    include:
+      - C:\\Users\\<user>
+    exclude:
+      - C:\\Users\\<user>\\AppData\\Local\\Temp
+    use_fs_snapshot: true
