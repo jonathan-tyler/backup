@@ -9,6 +9,9 @@
         "-count=1"
     ],
     "gopls": {
+        "buildFlags": [
+            "-tags=integration"
+        ],
         "ui.inlayhint.hints": {
             "assignVariableTypes": true,
             "compositeLiteralFields": true,
