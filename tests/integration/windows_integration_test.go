@@ -1,4 +1,4 @@
-//go:build integration && windows
+//go:build integration
 
 package integration
 
@@ -8,12 +8,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	backup "wsl-backup-cli/src"
 )
 
 func TestIntegrationWindowsDailyResticFlow(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only integration test")
+	}
+
 	resticPath, err := exec.LookPath("restic.exe")
 	if err != nil {
 		t.Skip("restic.exe not installed")
