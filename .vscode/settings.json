@@ -5,7 +5,6 @@
     },
     "go.formatTool": "goimports",
     "go.useLanguageServer": true,
-    "go.lintTool": "staticcheck",
     "go.testFlags": [
         "-count=1"
     ],
