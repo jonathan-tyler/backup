@@ -43,7 +43,7 @@ Run the CLI directly as `backup`.
 
 ```text
 backup run <daily|weekly|monthly>
-backup report <daily|weekly|monthly>
+backup report <daily|weekly|monthly> [new|excluded]
 backup restore <target>
 backup help
 backup --help
@@ -54,6 +54,8 @@ Examples:
 ```sh
 backup run daily
 backup report weekly
+backup report weekly new
+backup report weekly excluded
 backup restore /path/to/target
 ```
 
@@ -64,6 +66,8 @@ When installed as an extension for `wsl-sys-cli`, run the same arguments through
 ```sh
 sys backup run daily
 sys backup report weekly
+sys backup report weekly new
+sys backup report weekly excluded
 sys backup restore /path/to/target
 sys backup --help
 ```
