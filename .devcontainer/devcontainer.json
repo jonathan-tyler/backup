@@ -17,6 +17,8 @@
     "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
     "mounts": [
         "source=${localEnv:HOME}/.agents,target=/root/.agents,type=bind",
+        // Host WSL backup config dir bind-mounted for real config editing/testing.
+        "type=bind,source=${localEnv:HOME}/.config/backup,target=/home/developer/.config/backup",
         "type=volume,target=/home/developer/.cache",
         "type=volume,target=/home/developer/go",
         // Optional: enable this mount locally if you have a host starship config.
