@@ -18,13 +18,13 @@ try {
         $env:GOOS = 'linux'
         $env:GOARCH = 'amd64'
         & go build -o "$outDir/backup-linux-amd64" .
-        & go test -c -tags=integration -o "$outDir/itest-manifest-linux-amd64" ./tests/integration
+        & go test -c -tags=integration -o "$outDir/manual-itest-linux-amd64" ./tests/integration
 
         $env:CGO_ENABLED = '0'
         $env:GOOS = 'windows'
         $env:GOARCH = 'amd64'
         & go build -o "$outDir/backup-windows-amd64.exe" .
-        & go test -c -tags=integration -o "$outDir/itest-manifest-windows-amd64.exe" ./tests/integration
+        & go test -c -tags=integration -o "$outDir/manual-itest-windows-amd64.exe" ./tests/integration
     }
 
     if (-not $env:BACKUP_BINARY -or [string]::IsNullOrWhiteSpace($env:BACKUP_BINARY)) {
@@ -32,7 +32,7 @@ try {
     }
 
     if (-not $env:TEST_BINARY -or [string]::IsNullOrWhiteSpace($env:TEST_BINARY)) {
-        $env:TEST_BINARY = "$rootDir/out/itest-manifest-windows-amd64.exe"
+        $env:TEST_BINARY = "$rootDir/out/manual-itest-windows-amd64.exe"
     }
 
     if (-not (Test-Path -LiteralPath $env:BACKUP_BINARY)) {

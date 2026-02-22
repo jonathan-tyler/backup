@@ -7,11 +7,11 @@ cd "${ROOT_DIR}"
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   export BACKUP_BINARY="${BACKUP_BINARY:-${ROOT_DIR}/out/backup-linux-amd64}"
-  TEST_BINARY="${TEST_BINARY:-${ROOT_DIR}/out/itest-manifest-linux-amd64}"
+  TEST_BINARY="${TEST_BINARY:-${ROOT_DIR}/out/manual-itest-linux-amd64}"
   export WSL_DISTRO_NAME="${WSL_DISTRO_NAME:-devcontainer}"
 else
   export BACKUP_BINARY="${BACKUP_BINARY:-${ROOT_DIR}/out/backup-windows-amd64.exe}"
-  TEST_BINARY="${TEST_BINARY:-${ROOT_DIR}/out/itest-manifest-windows-amd64.exe}"
+  TEST_BINARY="${TEST_BINARY:-${ROOT_DIR}/out/manual-itest-windows-amd64.exe}"
 fi
 
 if command -v go >/dev/null 2>&1; then

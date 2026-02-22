@@ -98,8 +98,8 @@ Generated artifacts:
 
 - `out/backup-linux-amd64`
 - `out/backup-windows-amd64.exe`
-- `out/itest-manifest-linux-amd64`
-- `out/itest-manifest-windows-amd64.exe`
+- `out/manual-itest-linux-amd64`
+- `out/manual-itest-windows-amd64.exe`
 
 For Windows manual testing, open this repo in Windows VS Code and run the Windows artifact directly.
 
