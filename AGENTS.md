@@ -71,6 +71,13 @@ Treat these reports as product features of this wrapper, powered by local logic 
 - Add tests for planner behavior (include/exclude resolution) before wiring full execution.
 - Use integration tests for end-to-end process invocation once planner is stable.
 
+## Markdown Output Rules
+
+- For command examples, always use standalone fenced code blocks.
+- Do not embed script/command text inside bullet points.
+- Avoid markdown link syntax in command text.
+- Prefer plain filesystem paths in command blocks (for example `./tests/integration/...`).
+
 ## Future Refactor Trigger
 
 Only consider a heavier command abstraction when:

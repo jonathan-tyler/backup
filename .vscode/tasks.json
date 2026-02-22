@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build-out-binaries",
+            "label": "build-out",
             "type": "shell",
             "command": "${workspaceFolder}/tests/manual/build_binaries.sh",
             "options": {
@@ -22,37 +22,11 @@
             "problemMatcher": []
         },
         {
-            "label": "manual-wsl-test",
+            "label": "manual-itest",
             "type": "shell",
-            "command": "${workspaceFolder}/tests/manual/run_wsl_integration_pause.sh",
+            "command": "${workspaceFolder}/tests/manual/run_manifest_integration_pause.sh",
             "dependsOn": [
-                "build-out-binaries"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "manual-wsl-links-test",
-            "type": "shell",
-            "command": "${workspaceFolder}/tests/manual/run_wsl_links_integration_pause.sh",
-            "dependsOn": [
-                "build-out-binaries"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "manual-windows-links-test",
-            "type": "shell",
-            "command": "${workspaceFolder}/tests/manual/run_windows_links_integration.sh",
-            "dependsOn": [
-                "build-out-binaries"
+                "build-out"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
