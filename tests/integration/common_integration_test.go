@@ -18,6 +18,7 @@ import (
 )
 
 type integrationFixture struct {
+	CaseName        string
 	Target          string
 	Profile         string
 	UseFSSnapshot   bool
@@ -25,7 +26,6 @@ type integrationFixture struct {
 	TempDir         string
 	RepoDir         string
 	DataDir         string
-	OtherDir        string
 	IncludePaths    []string
 	ExcludePatterns []string
 	BeforeList      []string
@@ -83,106 +83,65 @@ func writeTestConfig(path string, profile string, repository string, includes []
 	return os.WriteFile(path, content, 0o644)
 }
 
-func createCommonManifest(t *testing.T, target string, resticPath string) integrationFixture {
+func resolveTargetAndRestic(t *testing.T) (string, string) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		resticPath, err := exec.LookPath("restic.exe")
+		if err != nil {
+			t.Skip("restic.exe not installed")
+		}
+		return "windows", resticPath
+	}
+
+	if os.Getenv("WSL_DISTRO_NAME") == "" {
+		t.Skip("WSL-only integration test")
+	}
+
+	resticPath, err := exec.LookPath("restic")
+	if err != nil {
+		t.Skip("restic not installed")
+	}
+	return "wsl", resticPath
+}
+
+func createBaseFixture(t *testing.T, caseName string, target string, resticPath string) integrationFixture {
 	t.Helper()
 
 	tempDir := t.TempDir()
 	repoDir := filepath.Join(tempDir, "repo")
 	dataDir := filepath.Join(tempDir, "data")
 	otherDir := filepath.Join(tempDir, "other")
-	linksDir := filepath.Join(dataDir, "links")
 
-	if err := os.MkdirAll(filepath.Join(dataDir, "docs"), 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
+	mkdir := func(path string) {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
 	}
-	if err := os.MkdirAll(filepath.Join(dataDir, "nested", "level1"), 0o755); err != nil {
-		t.Fatalf("mkdir level1: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(dataDir, "nested", "level2", "cache"), 0o755); err != nil {
-		t.Fatalf("mkdir cache dir: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(dataDir, "images"), 0o755); err != nil {
-		t.Fatalf("mkdir images: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(dataDir, "logs"), 0o755); err != nil {
-		t.Fatalf("mkdir logs: %v", err)
-	}
-	if err := os.MkdirAll(linksDir, 0o755); err != nil {
-		t.Fatalf("mkdir links: %v", err)
-	}
-	if err := os.MkdirAll(otherDir, 0o755); err != nil {
-		t.Fatalf("mkdir other dir: %v", err)
-	}
-
-	writeFile := func(path string, content string) {
+	write := func(path string, content string) {
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatalf("write file %s: %v", path, err)
+			t.Fatalf("write %s: %v", path, err)
 		}
 	}
 
-	writeFile(filepath.Join(dataDir, "root.txt"), "root")
-	writeFile(filepath.Join(dataDir, "docs", "readme.md"), "readme")
-	writeFile(filepath.Join(dataDir, "nested", "level1", "keep.txt"), "keep")
-	writeFile(filepath.Join(dataDir, "nested", "level1", "ignore.tmp"), "ignore")
-	writeFile(filepath.Join(dataDir, "nested", "level2", "keep-two.txt"), "keep-two")
-	writeFile(filepath.Join(dataDir, "nested", "level2", "cache", "cache.bin"), "cache")
-	writeFile(filepath.Join(dataDir, "images", "icon.png"), "icon")
-	writeFile(filepath.Join(dataDir, "logs", "app.log"), "log")
-	writeFile(filepath.Join(dataDir, "top.tmp"), "tmp")
-	writeFile(filepath.Join(otherDir, "outside.txt"), "outside")
+	mkdir(filepath.Join(dataDir, "docs"))
+	mkdir(filepath.Join(dataDir, "nested", "level1"))
+	mkdir(filepath.Join(dataDir, "nested", "level2", "cache"))
+	mkdir(filepath.Join(dataDir, "images"))
+	mkdir(filepath.Join(dataDir, "logs"))
+	mkdir(filepath.Join(dataDir, "links"))
+	mkdir(otherDir)
 
-	originalPath := filepath.Join(dataDir, "nested", "level1", "keep.txt")
-	symlinkPath := filepath.Join(linksDir, "symlink-to-keep.txt")
-	hardLinkPath := filepath.Join(linksDir, "hardlink-to-keep.txt")
-
-	if err := os.Symlink(originalPath, symlinkPath); err != nil {
-		t.Skipf("symlink creation unavailable: %v", err)
-	}
-	if err := os.Link(originalPath, hardLinkPath); err != nil {
-		t.Skipf("hardlink creation unavailable: %v", err)
-	}
-
-	expectedAfter := []string{
-		"data/root.txt",
-		"data/docs/readme.md",
-		"data/nested/level1/keep.txt",
-		"data/nested/level2/keep-two.txt",
-		"data/images/icon.png",
-		"data/links/symlink-to-keep.txt",
-		"data/links/hardlink-to-keep.txt",
-	}
-	beforeList := []string{
-		"data/root.txt",
-		"data/docs/readme.md",
-		"data/nested/level1/keep.txt",
-		"data/nested/level1/ignore.tmp",
-		"data/nested/level2/keep-two.txt",
-		"data/nested/level2/cache/cache.bin",
-		"data/images/icon.png",
-		"data/logs/app.log",
-		"data/top.tmp",
-		"data/links/symlink-to-keep.txt",
-		"data/links/hardlink-to-keep.txt",
-		"other/outside.txt",
-	}
-	expectedAbsent := []string{
-		"data/top.tmp",
-		"data/nested/level1/ignore.tmp",
-		"data/nested/level2/cache/cache.bin",
-		"data/logs/app.log",
-		"outside.txt",
-	}
-
-	if target == "windows" {
-		junctionPath := filepath.Join(linksDir, "junction-to-level2")
-		junctionTarget := filepath.Join(dataDir, "nested", "level2")
-		junctionCmd := exec.Command("cmd", "/C", "mklink", "/J", junctionPath, junctionTarget)
-		if output, err := junctionCmd.CombinedOutput(); err != nil {
-			t.Skipf("junction creation unavailable: %v (%s)", err, strings.TrimSpace(string(output)))
-		}
-		expectedAfter = append(expectedAfter, "data/links/junction-to-level2")
-		beforeList = append(beforeList, "data/links/junction-to-level2")
-	}
+	write(filepath.Join(dataDir, "root.txt"), "root")
+	write(filepath.Join(dataDir, "docs", "readme.md"), "readme")
+	write(filepath.Join(dataDir, "nested", "level1", "keep.txt"), "keep")
+	write(filepath.Join(dataDir, "nested", "level1", "ignore.tmp"), "ignore")
+	write(filepath.Join(dataDir, "nested", "level2", "keep-two.txt"), "keep-two")
+	write(filepath.Join(dataDir, "nested", "level2", "cache", "cache.bin"), "cache")
+	write(filepath.Join(dataDir, "images", "icon.png"), "icon")
+	write(filepath.Join(dataDir, "logs", "app.log"), "log")
+	write(filepath.Join(dataDir, "top.tmp"), "tmp")
+	write(filepath.Join(otherDir, "outside.txt"), "outside")
 
 	profile := "wsl"
 	useFSSnapshot := false
@@ -192,6 +151,7 @@ func createCommonManifest(t *testing.T, target string, resticPath string) integr
 	}
 
 	return integrationFixture{
+		CaseName:      caseName,
 		Target:        target,
 		Profile:       profile,
 		UseFSSnapshot: useFSSnapshot,
@@ -199,7 +159,6 @@ func createCommonManifest(t *testing.T, target string, resticPath string) integr
 		TempDir:       tempDir,
 		RepoDir:       repoDir,
 		DataDir:       dataDir,
-		OtherDir:      otherDir,
 		IncludePaths:  []string{dataDir},
 		ExcludePatterns: []string{
 			filepath.Join(dataDir, "*.tmp"),
@@ -207,16 +166,105 @@ func createCommonManifest(t *testing.T, target string, resticPath string) integr
 			filepath.Join(dataDir, "nested", "level2", "cache", "*"),
 			filepath.Join(dataDir, "logs", "*.log"),
 		},
-		BeforeList:     beforeList,
-		ExpectedAfter:  expectedAfter,
-		ExpectedAbsent: expectedAbsent,
+		BeforeList: []string{
+			"data/root.txt",
+			"data/docs/readme.md",
+			"data/nested/level1/keep.txt",
+			"data/nested/level1/ignore.tmp",
+			"data/nested/level2/keep-two.txt",
+			"data/nested/level2/cache/cache.bin",
+			"data/images/icon.png",
+			"data/logs/app.log",
+			"data/top.tmp",
+			"other/outside.txt",
+		},
+		ExpectedAfter: []string{
+			"data/root.txt",
+			"data/docs/readme.md",
+			"data/nested/level1/keep.txt",
+			"data/nested/level2/keep-two.txt",
+			"data/images/icon.png",
+		},
+		ExpectedAbsent: []string{
+			"data/top.tmp",
+			"data/nested/level1/ignore.tmp",
+			"data/nested/level2/cache/cache.bin",
+			"data/logs/app.log",
+			"outside.txt",
+		},
 	}
 }
 
-func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
+func addFileSymlinkAndHardlink(t *testing.T, fixture *integrationFixture) {
 	t.Helper()
+	originalPath := filepath.Join(fixture.DataDir, "nested", "level1", "keep.txt")
+	symlinkPath := filepath.Join(fixture.DataDir, "links", "symlink-to-keep.txt")
+	hardLinkPath := filepath.Join(fixture.DataDir, "links", "hardlink-to-keep.txt")
 
-	fixture := createCommonManifest(t, target, resticPath)
+	if err := os.Symlink(originalPath, symlinkPath); err != nil {
+		t.Skipf("symlink creation unavailable: %v", err)
+	}
+	if err := os.Link(originalPath, hardLinkPath); err != nil {
+		t.Skipf("hardlink creation unavailable: %v", err)
+	}
+
+	fixture.BeforeList = append(fixture.BeforeList, "data/links/symlink-to-keep.txt", "data/links/hardlink-to-keep.txt")
+	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/symlink-to-keep.txt", "data/links/hardlink-to-keep.txt")
+}
+
+func addDirectorySymlink(t *testing.T, fixture *integrationFixture) {
+	t.Helper()
+	targetDir := filepath.Join(fixture.DataDir, "nested", "level2")
+	linkPath := filepath.Join(fixture.DataDir, "links", "dir-symlink-to-level2")
+	if err := os.Symlink(targetDir, linkPath); err != nil {
+		t.Skipf("directory symlink creation unavailable: %v", err)
+	}
+	fixture.BeforeList = append(fixture.BeforeList, "data/links/dir-symlink-to-level2")
+	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/dir-symlink-to-level2")
+}
+
+func addBrokenSymlink(t *testing.T, fixture *integrationFixture) {
+	t.Helper()
+	brokenTarget := filepath.Join(fixture.DataDir, "missing-target.txt")
+	linkPath := filepath.Join(fixture.DataDir, "links", "broken-symlink.txt")
+	if err := os.Symlink(brokenTarget, linkPath); err != nil {
+		t.Skipf("broken symlink creation unavailable: %v", err)
+	}
+	fixture.BeforeList = append(fixture.BeforeList, "data/links/broken-symlink.txt")
+	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/broken-symlink.txt")
+}
+
+func addSymlinkLoop(t *testing.T, fixture *integrationFixture) {
+	t.Helper()
+	loopA := filepath.Join(fixture.DataDir, "links", "loop-a")
+	loopB := filepath.Join(fixture.DataDir, "links", "loop-b")
+	if err := os.Symlink(loopB, loopA); err != nil {
+		t.Skipf("loop symlink A creation unavailable: %v", err)
+	}
+	if err := os.Symlink(loopA, loopB); err != nil {
+		t.Skipf("loop symlink B creation unavailable: %v", err)
+	}
+	fixture.BeforeList = append(fixture.BeforeList, "data/links/loop-a", "data/links/loop-b")
+	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/loop-a", "data/links/loop-b")
+}
+
+func addWindowsJunction(t *testing.T, fixture *integrationFixture) {
+	t.Helper()
+	if fixture.Target != "windows" {
+		t.Skip("windows junction case is windows-only")
+	}
+	junctionPath := filepath.Join(fixture.DataDir, "links", "junction-to-level2")
+	junctionTarget := filepath.Join(fixture.DataDir, "nested", "level2")
+	junctionCmd := exec.Command("cmd", "/C", "mklink", "/J", junctionPath, junctionTarget)
+	if output, err := junctionCmd.CombinedOutput(); err != nil {
+		t.Skipf("junction creation unavailable: %v (%s)", err, strings.TrimSpace(string(output)))
+	}
+	fixture.BeforeList = append(fixture.BeforeList, "data/links/junction-to-level2")
+	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/junction-to-level2")
+}
+
+func runFixtureCase(t *testing.T, fixture integrationFixture, allowPause bool) {
+	t.Helper()
 
 	_ = os.Setenv("RESTIC_PASSWORD", "integration-test-password")
 	defer func() { _ = os.Unsetenv("RESTIC_PASSWORD") }()
@@ -236,7 +284,6 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 		if writeErr := writeTestConfig(configPath, fixture.Profile, fixture.RepoDir, fixture.IncludePaths, fixture.ExcludePatterns, fixture.UseFSSnapshot); writeErr != nil {
 			t.Fatalf("write config file: %v", writeErr)
 		}
-
 		previousConfig := os.Getenv("BACKUP_CONFIG")
 		_ = os.Setenv("BACKUP_CONFIG", configPath)
 		defer func() {
@@ -246,7 +293,6 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 			}
 			_ = os.Setenv("BACKUP_CONFIG", previousConfig)
 		}()
-
 		command := exec.Command(backupBinary, "run", "daily")
 		commandOutput, commandErr := command.CombinedOutput()
 		if commandErr != nil {
@@ -258,7 +304,6 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 			args = append(args, "--exclude", pattern)
 		}
 		args = append(args, fixture.IncludePaths...)
-
 		_, err = backup.ExecuteResticInvocations([]backup.ResticInvocation{{
 			Target:     fixture.Target,
 			Executable: fixture.ResticPath,
@@ -288,6 +333,7 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 	}
 
 	lsOutput := lsResults[0].Output
+	t.Logf("case: %s", fixture.CaseName)
 	t.Logf("before list:\n%s", formatList(fixture.BeforeList))
 	t.Logf("expected after list:\n%s", formatList(fixture.ExpectedAfter))
 	t.Logf("expected excluded list:\n%s", formatList(fixture.ExpectedAbsent))
@@ -306,8 +352,8 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 		}
 	}
 
-	if os.Getenv("BACKUP_ITEST_PAUSE") == "1" {
-		fmt.Printf("integration pause enabled\nrepo: %s\ndata: %s\n", fixture.RepoDir, fixture.DataDir)
+	if allowPause && os.Getenv("BACKUP_ITEST_PAUSE") == "1" {
+		fmt.Printf("integration pause enabled\ncase: %s\nrepo: %s\ndata: %s\n", fixture.CaseName, fixture.RepoDir, fixture.DataDir)
 		fmt.Println("manual inspect commands:")
 		fmt.Printf("  RESTIC_PASSWORD=integration-test-password %s -r %q snapshots\n", fixture.ResticPath, fixture.RepoDir)
 		fmt.Printf("  RESTIC_PASSWORD=integration-test-password %s -r %q ls latest\n", fixture.ResticPath, fixture.RepoDir)
@@ -316,24 +362,57 @@ func runDailyManifestFlow(t *testing.T, target string, resticPath string) {
 	}
 }
 
-func TestIntegrationDailyManifestFlow(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		resticPath, err := exec.LookPath("restic.exe")
-		if err != nil {
-			t.Skip("restic.exe not installed")
-		}
-		runDailyManifestFlow(t, "windows", resticPath)
-		return
+func runCase(t *testing.T, caseName string, mutate func(t *testing.T, fixture *integrationFixture), allowPause bool) {
+	t.Helper()
+	target, resticPath := resolveTargetAndRestic(t)
+	fixture := createBaseFixture(t, caseName, target, resticPath)
+	if mutate != nil {
+		mutate(t, &fixture)
 	}
+	runFixtureCase(t, fixture, allowPause)
+}
 
-	if os.Getenv("WSL_DISTRO_NAME") == "" {
-		t.Skip("WSL-only integration test")
-	}
+func TestIntegrationCaseIncludeExclude(t *testing.T) {
+	runCase(t, "include-exclude", nil, false)
+}
 
-	resticPath, err := exec.LookPath("restic")
-	if err != nil {
-		t.Skip("restic not installed")
-	}
+func TestIntegrationCaseFileSymlinkAndHardlink(t *testing.T) {
+	runCase(t, "file-symlink-hardlink", addFileSymlinkAndHardlink, false)
+}
 
-	runDailyManifestFlow(t, "wsl", resticPath)
+func TestIntegrationCaseDirectorySymlink(t *testing.T) {
+	runCase(t, "directory-symlink", addDirectorySymlink, false)
+}
+
+func TestIntegrationCaseBrokenSymlink(t *testing.T) {
+	runCase(t, "broken-symlink", addBrokenSymlink, false)
+}
+
+func TestIntegrationCaseSymlinkLoop(t *testing.T) {
+	runCase(t, "symlink-loop", addSymlinkLoop, false)
+}
+
+func TestIntegrationCaseWindowsJunction(t *testing.T) {
+	runCase(t, "windows-junction", addWindowsJunction, false)
+}
+
+func TestIntegrationManifestAllCases(t *testing.T) {
+	t.Run("include-exclude", func(t *testing.T) {
+		runCase(t, "include-exclude", nil, os.Getenv("BACKUP_ITEST_PAUSE") == "1")
+	})
+	t.Run("file-symlink-hardlink", func(t *testing.T) {
+		runCase(t, "file-symlink-hardlink", addFileSymlinkAndHardlink, false)
+	})
+	t.Run("directory-symlink", func(t *testing.T) {
+		runCase(t, "directory-symlink", addDirectorySymlink, false)
+	})
+	t.Run("broken-symlink", func(t *testing.T) {
+		runCase(t, "broken-symlink", addBrokenSymlink, false)
+	})
+	t.Run("symlink-loop", func(t *testing.T) {
+		runCase(t, "symlink-loop", addSymlinkLoop, false)
+	})
+	t.Run("windows-junction", func(t *testing.T) {
+		runCase(t, "windows-junction", addWindowsJunction, false)
+	})
 }

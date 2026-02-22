@@ -40,4 +40,4 @@ echo "Running consolidated integration manifest test with pause setting BACKUP_I
 echo "Using backup binary: ${BACKUP_BINARY}"
 echo
 
-"${BIN_PATH}" -test.v -test.run TestIntegrationDailyManifestFlow
+"${BIN_PATH}" -test.v -test.run TestIntegrationManifestAllCases
