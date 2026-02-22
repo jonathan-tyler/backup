@@ -1,0 +1,6 @@
+git add -A
+git add -A && git commit --fixup 0000
+git commit --fixup 0000
+git rebase --interactive --autosquash --keep-base origin/main
+git rebase --continue
+git rebase --abort
