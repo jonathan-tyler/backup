@@ -98,12 +98,20 @@ Generated artifacts:
 
 - `out/backup-linux-amd64`
 - `out/backup-windows-amd64.exe`
+- `out/itest-manifest-linux-amd64`
+- `out/itest-manifest-windows-amd64.exe`
 
 For Windows manual testing, open this repo in Windows VS Code and run the Windows artifact directly.
 
-Manual integration scripts in `tests/manual/` now build `out/` binaries first and pass `BACKUP_BINARY`
-into integration tests. Set `SKIP_OUT_BUILD=1` to skip prebuild, or set `BACKUP_BINARY` explicitly to
-override which binary is exercised.
+Manual integration scripts in `tests/manual/` use prebuilt binaries from `out/` and pass `BACKUP_BINARY`
+into integration tests. If `go` is available, they build fresh artifacts automatically before running.
+If `go` is not available, they require existing `out/` artifacts and warn that prebuilt binaries may be
+out of date; build first in the dev container with `tests/manual/build_binaries.sh` when needed.
+
+Link behavior note: restic archives symlinks as symlinks by default and does not follow them during
+backup. This project relies on that default behavior to avoid recursive traversal issues from symlink
+loops. If follow-symlink behavior is enabled explicitly in a restic invocation, link traversal semantics
+change and loop/cycle risk must be evaluated separately.
 
 ## Configuration (Scaffold)
 

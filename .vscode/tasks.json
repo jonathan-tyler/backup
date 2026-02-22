@@ -12,35 +12,24 @@
             "problemMatcher": []
         },
         {
-            "label": "run-out-linux-help",
-            "type": "shell",
-            "command": "${workspaceFolder}/out/backup-linux-amd64 --help",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
             "label": "manual-itest",
             "type": "shell",
-            "command": "${workspaceFolder}/tests/manual/run_manifest_integration_pause.sh",
-            "dependsOn": [
-                "build-out"
-            ],
+            "command": "${workspaceFolder}/tests/manual/run_manual_integration_tests.sh",
+            "args": [],
             "options": {
                 "cwd": "${workspaceFolder}"
+            },
+            "windows": {
+                "command": "powershell",
+                "args": [
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "${workspaceFolder}\\tests\\manual\\run_manual_integration_tests.ps1"
+                ]
             },
             "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "manual-windows-binary-note",
-            "type": "shell",
-            "command": "echo Built Windows binary at out/backup-windows-amd64.exe; echo Open this repo in Windows VS Code and run that .exe there with your Windows manual tests.",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
             "problemMatcher": []
         }
     ]

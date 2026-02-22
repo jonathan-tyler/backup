@@ -4,11 +4,13 @@ package integration
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -63,6 +65,191 @@ func listContainsPath(listing string, relPath string) bool {
 	return strings.Contains(normalizedListing, normalizedRelPath)
 }
 
+func colorEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	term := strings.TrimSpace(strings.ToLower(os.Getenv("TERM")))
+	return term != "" && term != "dumb"
+}
+
+func colorize(text string, colorCode string) string {
+	if !colorEnabled() {
+		return text
+	}
+	return "\x1b[" + colorCode + "m" + text + "\x1b[0m"
+}
+
+func normalizePath(path string) string {
+	normalized := strings.ToLower(strings.ReplaceAll(path, "\\", "/"))
+	return strings.TrimPrefix(normalized, "./")
+}
+
+func pathMatches(repoPath string, expected string) bool {
+	normalizedRepoPath := normalizePath(repoPath)
+	normalizedExpected := normalizePath(expected)
+	return normalizedRepoPath == normalizedExpected || strings.HasSuffix(normalizedRepoPath, "/"+normalizedExpected)
+}
+
+type resticLSNode struct {
+	StructType string `json:"struct_type"`
+	Type       string `json:"type"`
+	Path       string `json:"path"`
+}
+
+func compactFileCentricListingFromJSON(rawJSON string) string {
+	if strings.TrimSpace(rawJSON) == "" {
+		return "  (none)"
+	}
+
+	seen := make(map[string]struct{})
+	paths := make([]string, 0)
+	for _, line := range strings.Split(rawJSON, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var node resticLSNode
+		if err := json.Unmarshal([]byte(line), &node); err != nil {
+			continue
+		}
+		if node.StructType != "node" {
+			continue
+		}
+		if node.Type != "file" && node.Type != "symlink" {
+			continue
+		}
+		if node.Path == "" {
+			continue
+		}
+		if _, exists := seen[node.Path]; exists {
+			continue
+		}
+		seen[node.Path] = struct{}{}
+		paths = append(paths, node.Path)
+	}
+
+	if len(paths) == 0 {
+		return "  (none)"
+	}
+
+	sort.Strings(paths)
+	return formatList(paths)
+}
+
+func collectFileCentricPathsFromJSON(rawJSON string) []string {
+	seen := make(map[string]struct{})
+	paths := make([]string, 0)
+	for _, line := range strings.Split(rawJSON, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var node resticLSNode
+		if err := json.Unmarshal([]byte(line), &node); err != nil {
+			continue
+		}
+		if node.StructType != "node" {
+			continue
+		}
+		if node.Type != "file" && node.Type != "symlink" {
+			continue
+		}
+		if node.Path == "" {
+			continue
+		}
+		if _, exists := seen[node.Path]; exists {
+			continue
+		}
+		seen[node.Path] = struct{}{}
+		paths = append(paths, node.Path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func containsExpectedPath(paths []string, expected string) bool {
+	for _, path := range paths {
+		if pathMatches(path, expected) {
+			return true
+		}
+	}
+	return false
+}
+
+func renderExpectationLines(label string, items []string, paths []string, shouldExist bool, okColorCode string, failColorCode string) (string, int) {
+	if len(items) == 0 {
+		return fmt.Sprintf("  %s: (none)", label), 0
+	}
+
+	matched := 0
+	lines := make([]string, 0, len(items)+1)
+	for _, item := range items {
+		exists := containsExpectedPath(paths, item)
+		ok := (shouldExist && exists) || (!shouldExist && !exists)
+		if ok {
+			matched++
+		}
+
+		status := "✗"
+		colorCode := failColorCode
+		if ok {
+			status = "✓"
+			colorCode = okColorCode
+		}
+
+		line := fmt.Sprintf("  [%s] %s", status, item)
+		lines = append(lines, colorize(line, colorCode))
+	}
+	return strings.Join(lines, "\n"), matched
+}
+
+func colorizeList(items []string, colorCode string) string {
+	if len(items) == 0 {
+		return "  (none)"
+	}
+	lines := make([]string, 0, len(items))
+	for _, item := range items {
+		lines = append(lines, colorize("  - "+item, colorCode))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func renderBeforeListWithExpectations(before []string, expectedAfter []string, expectedAbsent []string) string {
+	if len(before) == 0 {
+		return "  (none)"
+	}
+
+	expectedIncluded := make(map[string]struct{}, len(expectedAfter))
+	for _, path := range expectedAfter {
+		expectedIncluded[normalizePath(path)] = struct{}{}
+	}
+
+	expectedExcluded := make(map[string]struct{}, len(expectedAbsent))
+	for _, path := range expectedAbsent {
+		expectedExcluded[normalizePath(path)] = struct{}{}
+	}
+
+	lines := make([]string, 0, len(before))
+	for _, item := range before {
+		normalized := normalizePath(item)
+		line := "  - " + item
+		if _, ok := expectedIncluded[normalized]; ok {
+			lines = append(lines, colorize(line, "38;5;108"))
+			continue
+		}
+		if _, ok := expectedExcluded[normalized]; ok {
+			lines = append(lines, colorize(line, "38;5;131"))
+			continue
+		}
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func writeTestConfig(path string, profile string, repository string, includes []string, excludes []string, useFSSnapshot bool) error {
 	config := testConfigFile{
 		Profiles: map[string]testConfigProfile{
@@ -94,8 +281,8 @@ func resolveTargetAndRestic(t *testing.T) (string, string) {
 		return "windows", resticPath
 	}
 
-	if os.Getenv("WSL_DISTRO_NAME") == "" {
-		t.Skip("WSL-only integration test")
+	if runtime.GOOS != "linux" {
+		t.Skip("integration tests currently support Windows and Linux/WSL")
 	}
 
 	resticPath, err := exec.LookPath("restic")
@@ -263,6 +450,17 @@ func addWindowsJunction(t *testing.T, fixture *integrationFixture) {
 	fixture.ExpectedAfter = append(fixture.ExpectedAfter, "data/links/junction-to-level2")
 }
 
+func addAllCasesForSingleManifestRun(t *testing.T, fixture *integrationFixture) {
+	t.Helper()
+	addFileSymlinkAndHardlink(t, fixture)
+	addDirectorySymlink(t, fixture)
+	addBrokenSymlink(t, fixture)
+	addSymlinkLoop(t, fixture)
+	if fixture.Target == "windows" {
+		addWindowsJunction(t, fixture)
+	}
+}
+
 func runFixtureCase(t *testing.T, fixture integrationFixture, allowPause bool) {
 	t.Helper()
 
@@ -332,13 +530,31 @@ func runFixtureCase(t *testing.T, fixture integrationFixture, allowPause bool) {
 		t.Fatalf("restic ls latest failed: %v", err)
 	}
 
+	lsJSONResults, err := backup.ExecuteResticInvocations([]backup.ResticInvocation{{
+		Target:     fixture.Target,
+		Executable: fixture.ResticPath,
+		Args:       []string{"-r", fixture.RepoDir, "ls", "latest", "--json"},
+	}}, backup.SystemExecutor{})
+	if err != nil {
+		t.Fatalf("restic ls latest --json failed: %v", err)
+	}
+
 	lsOutput := lsResults[0].Output
+	repoPaths := collectFileCentricPathsFromJSON(lsJSONResults[0].Output)
+	compactListing := compactFileCentricListingFromJSON(lsJSONResults[0].Output)
+	includedRendered, includedMatched := renderExpectationLines("included", fixture.ExpectedAfter, repoPaths, true, "38;5;108", "38;5;131")
+	excludedRendered, excludedMatched := renderExpectationLines("excluded", fixture.ExpectedAbsent, repoPaths, false, "38;5;131", "38;5;108")
+	beforeRendered := renderBeforeListWithExpectations(fixture.BeforeList, fixture.ExpectedAfter, fixture.ExpectedAbsent)
 	t.Logf("case: %s", fixture.CaseName)
-	t.Logf("before list:\n%s", formatList(fixture.BeforeList))
-	t.Logf("expected after list:\n%s", formatList(fixture.ExpectedAfter))
-	t.Logf("expected excluded list:\n%s", formatList(fixture.ExpectedAbsent))
+	t.Logf("include rules:\n%s", colorizeList(fixture.IncludePaths, "38;5;108"))
+	t.Logf("exclude rules:\n%s", colorizeList(fixture.ExcludePatterns, "38;5;131"))
+	t.Logf("before list (green=expected include, red=expected exclude):\n%s", beforeRendered)
+	t.Logf("expected excluded list:\n%s", colorizeList(fixture.ExpectedAbsent, "38;5;131"))
+	t.Logf("assert include matches: %d/%d\n%s", includedMatched, len(fixture.ExpectedAfter), includedRendered)
+	t.Logf("assert exclude matches: %d/%d\n%s", excludedMatched, len(fixture.ExpectedAbsent), excludedRendered)
+	t.Logf("repo file/symlink count: %d", len(repoPaths))
 	t.Logf("repo snapshots output:\n%s", snapshotsResults[0].Output)
-	t.Logf("repo ls latest output:\n%s", lsOutput)
+	t.Logf("repo ls latest file-centric output:\n%s", compactListing)
 
 	for _, expected := range fixture.ExpectedAfter {
 		if !listContainsPath(lsOutput, expected) {
@@ -356,7 +572,7 @@ func runFixtureCase(t *testing.T, fixture integrationFixture, allowPause bool) {
 		fmt.Printf("integration pause enabled\ncase: %s\nrepo: %s\ndata: %s\n", fixture.CaseName, fixture.RepoDir, fixture.DataDir)
 		fmt.Println("manual inspect commands:")
 		fmt.Printf("  RESTIC_PASSWORD=integration-test-password %s -r %q snapshots\n", fixture.ResticPath, fixture.RepoDir)
-		fmt.Printf("  RESTIC_PASSWORD=integration-test-password %s -r %q ls latest\n", fixture.ResticPath, fixture.RepoDir)
+		fmt.Printf("  RESTIC_PASSWORD=integration-test-password %s -r %q ls latest --json | jq -r 'select(.struct_type==\"node\" and .type==\"file\") | .path'\n", fixture.ResticPath, fixture.RepoDir)
 		fmt.Println("press Enter to continue cleanup...")
 		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
 	}
@@ -397,22 +613,5 @@ func TestIntegrationCaseWindowsJunction(t *testing.T) {
 }
 
 func TestIntegrationManifestAllCases(t *testing.T) {
-	t.Run("include-exclude", func(t *testing.T) {
-		runCase(t, "include-exclude", nil, os.Getenv("BACKUP_ITEST_PAUSE") == "1")
-	})
-	t.Run("file-symlink-hardlink", func(t *testing.T) {
-		runCase(t, "file-symlink-hardlink", addFileSymlinkAndHardlink, false)
-	})
-	t.Run("directory-symlink", func(t *testing.T) {
-		runCase(t, "directory-symlink", addDirectorySymlink, false)
-	})
-	t.Run("broken-symlink", func(t *testing.T) {
-		runCase(t, "broken-symlink", addBrokenSymlink, false)
-	})
-	t.Run("symlink-loop", func(t *testing.T) {
-		runCase(t, "symlink-loop", addSymlinkLoop, false)
-	})
-	t.Run("windows-junction", func(t *testing.T) {
-		runCase(t, "windows-junction", addWindowsJunction, false)
-	})
+	runCase(t, "manual-all-cases-single-run", addAllCasesForSingleManifestRun, os.Getenv("BACKUP_ITEST_PAUSE") == "1")
 }
