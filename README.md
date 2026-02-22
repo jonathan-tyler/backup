@@ -103,6 +103,26 @@ Generated artifacts:
 
 For Windows manual testing, open this repo in Windows VS Code and run the Windows artifact directly.
 
+Install/pin `restic` across WSL Fedora and Windows (Scoop) with repo canonical pin:
+
+- Canonical repo pin: `scripts/restic-version.yaml`
+
+```sh
+scripts/install_restic_wsl_fedora.sh
+```
+
+This WSL-first script validates that the pinned version exists in both `dnf` and `scoop.exe`,
+installs both Linux and Windows restic to that version, and scaffolds config/rules files when missing.
+
+Update to the newest cross-available version (dnf latest that matches scoop manifest):
+
+```sh
+scripts/update_restic_version.sh
+```
+
+This updates `scripts/restic-version.yaml`, and then runs
+`scripts/install_restic_wsl_fedora.sh`.
+
 Manual integration scripts in `tests/manual/` use prebuilt binaries from `out/` and pass `BACKUP_BINARY`
 into integration tests. If `go` is available, they build fresh artifacts automatically before running.
 If `go` is not available, they require existing `out/` artifacts and warn that prebuilt binaries may be
@@ -119,6 +139,11 @@ change and loop/cycle risk must be evaluated separately.
 - Default config path in Windows: `%APPDATA%\\backup\\config.yaml`
 - Optional override for both: `BACKUP_CONFIG=/custom/path/config.yaml`
 - Starter template: [config.example.yaml](config.example.yaml)
+- Restic pin: `scripts/restic-version.yaml`
+- Rule files are auto-discovered next to config in `rules/` using this naming pattern:
+ `<profile>.<include|exclude>.<daily|weekly|monthly>.txt`
+- Rule files use one path per line (`#` comments allowed)
+- Optional overrides are available with `include_files` and `exclude_files` in config when needed
 
 Current status: config loading/validation is scaffolded for `run` planning only.
 Backup execution is not implemented yet.

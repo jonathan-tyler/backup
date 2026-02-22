@@ -25,9 +25,14 @@ func TestBuildResticInvocationsWindowsUsesExe(t *testing.T) {
 	plan := backup.RunPlan{Cadence: "daily", Targets: []string{"windows"}}
 	config := backup.AppConfig{Profiles: map[string]backup.ProfileConfig{
 		"windows": {
-			IncludePaths:   []string{`C:\\Users\\test`},
-			RepositoryHint: `C:\\repo`,
-			UseFSSnapshot:  true,
+			IncludeByCadence: backup.CadencePaths{
+				Daily:   []string{`C:\\Users\\test`},
+				Weekly:  []string{`C:\\Users\\test`},
+				Monthly: []string{`C:\\Users\\test`},
+			},
+			ExcludeByCadence: backup.CadencePaths{},
+			RepositoryHint:   `C:\\repo`,
+			UseFSSnapshot:    true,
 		},
 	}}
 
@@ -52,5 +57,43 @@ func TestExecuteResticInvocationsRunsExecutable(t *testing.T) {
 	}
 	if len(executor.calls) != 1 || executor.calls[0] != "restic" {
 		t.Fatalf("unexpected calls: %#v", executor.calls)
+	}
+}
+
+func TestBuildResticInvocationsUsesCadencePaths(t *testing.T) {
+	t.Parallel()
+
+	plan := backup.RunPlan{Cadence: "weekly", Targets: []string{"wsl"}}
+	config := backup.AppConfig{Profiles: map[string]backup.ProfileConfig{
+		"wsl": {
+			IncludeByCadence: backup.CadencePaths{
+				Daily:   []string{"/home/test/daily"},
+				Weekly:  []string{"/home/test/daily", "/home/test/weekly"},
+				Monthly: []string{"/home/test/daily", "/home/test/weekly", "/home/test/monthly"},
+			},
+			ExcludeByCadence: backup.CadencePaths{
+				Daily:   []string{"/home/test/.cache"},
+				Weekly:  []string{"/home/test/.cache", "/home/test/tmp"},
+				Monthly: []string{"/home/test/.cache"},
+			},
+			RepositoryHint: "/repo",
+		},
+	}}
+
+	invocations, err := backup.BuildResticInvocations(plan, config)
+	if err != nil {
+		t.Fatalf("BuildResticInvocations returned error: %v", err)
+	}
+	if len(invocations) != 1 {
+		t.Fatalf("expected one invocation, got %d", len(invocations))
+	}
+
+	args := invocations[0].Args
+	serialized := fmt.Sprintf("%q", args)
+	if serialized == "" {
+		t.Fatal("expected invocation args")
+	}
+	if args[len(args)-2] != "/home/test/daily" || args[len(args)-1] != "/home/test/weekly" {
+		t.Fatalf("unexpected weekly include args: %#v", args)
 	}
 }

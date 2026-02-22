@@ -16,7 +16,10 @@ func BuildResticInvocations(plan RunPlan, config AppConfig) ([]ResticInvocation,
 		if !ok {
 			return nil, fmt.Errorf("missing profile config: %s", target)
 		}
-		if len(profile.IncludePaths) == 0 {
+		includePaths := profile.IncludeByCadence.ForCadence(plan.Cadence)
+		excludePaths := profile.ExcludeByCadence.ForCadence(plan.Cadence)
+
+		if len(includePaths) == 0 {
 			return nil, fmt.Errorf("missing include paths for target: %s", target)
 		}
 		if profile.RepositoryHint == "" {
@@ -27,10 +30,10 @@ func BuildResticInvocations(plan RunPlan, config AppConfig) ([]ResticInvocation,
 		if profile.UseFSSnapshot {
 			args = append(args, "--use-fs-snapshot")
 		}
-		for _, excludePath := range profile.ExcludePaths {
+		for _, excludePath := range excludePaths {
 			args = append(args, "--exclude", excludePath)
 		}
-		args = append(args, profile.IncludePaths...)
+		args = append(args, includePaths...)
 
 		executable := "restic"
 		if target == "windows" {

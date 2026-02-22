@@ -40,10 +40,10 @@ type testConfigFile struct {
 }
 
 type testConfigProfile struct {
-	Repository    string   `yaml:"repository"`
-	Include       []string `yaml:"include"`
-	Exclude       []string `yaml:"exclude"`
-	UseFSSnapshot bool     `yaml:"use_fs_snapshot"`
+	Repository    string              `yaml:"repository"`
+	Include       backup.CadencePaths `yaml:"include"`
+	Exclude       backup.CadencePaths `yaml:"exclude"`
+	UseFSSnapshot bool                `yaml:"use_fs_snapshot"`
 }
 
 func formatList(items []string) string {
@@ -254,9 +254,17 @@ func writeTestConfig(path string, profile string, repository string, includes []
 	config := testConfigFile{
 		Profiles: map[string]testConfigProfile{
 			profile: {
-				Repository:    repository,
-				Include:       includes,
-				Exclude:       excludes,
+				Repository: repository,
+				Include: backup.CadencePaths{
+					Daily:   includes,
+					Weekly:  includes,
+					Monthly: includes,
+				},
+				Exclude: backup.CadencePaths{
+					Daily:   excludes,
+					Weekly:  excludes,
+					Monthly: excludes,
+				},
 				UseFSSnapshot: useFSSnapshot,
 			},
 		},
