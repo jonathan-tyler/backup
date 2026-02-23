@@ -30,7 +30,10 @@ RUN if ! id -u ${USERNAME} >/dev/null 2>&1; then \
     > /home/${USERNAME}/.zshrc \
     && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.zshrc \
     && chmod 600 /home/${USERNAME}/.zsh_history \
+    && install -d -m 0755 /home/${USERNAME}/.vscode-server/data/Machine \
+    && touch /home/${USERNAME}/.vscode-server/data/Machine/settings.json \
     && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.oh-my-zsh \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.vscode-server \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS project
