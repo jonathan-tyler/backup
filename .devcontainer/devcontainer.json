@@ -14,13 +14,14 @@
     ],
     "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind",
     "workspaceFolder": "/workspace/linux/backup",
-    "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
     "mounts": [
         "type=volume,target=/home/developer/.cache",
         "type=volume,target=/home/developer/go",
         "type=bind,source=${localEnv:HOME}/.agents,target=/home/developer/.agents,readonly",
         // Use less restrictive agent allowances only inside dev containers
-        "type=bind,source=${localEnv:HOME}/.config/dev-containers/settings.json,target=/home/developer/.vscode-server/data/Machine/settings.json",
+        "type=bind,source=${localEnv:HOME}/.agents/skills/dev-containers/assets/settings.json,target=/home/developer/.vscode-server/data/Machine/settings.json",
+        // Mount shell history seed from the dev-containers template assets.
+        "type=bind,source=${localEnv:HOME}/.agents/skills/dev-containers/assets/.zsh_history,target=/tmp/.zsh_history,readonly",
         // Host WSL backup config dir bind-mounted for real config editing/testing.
         "type=bind,source=${localEnv:HOME}/.config/backup,target=/home/developer/.config/backup",
         // Optional: enable this mount locally if you have a host starship config.
