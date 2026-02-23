@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -11,10 +12,11 @@ type Command struct {
 	Cadence       string
 	Target        string
 	Report        string
-	StrictOverlap bool
 }
 
 var runtimeDetector = DetectRuntime
+var manualTestRunner = RunCrossPlatformManualTests
+var devContainerDetector = isDevContainerSession
 
 func SetRuntimeDetectorForTests(detector func() Runtime) {
 	if detector == nil {
@@ -24,12 +26,60 @@ func SetRuntimeDetectorForTests(detector func() Runtime) {
 	runtimeDetector = detector
 }
 
+func SetManualTestRunnerForTests(runner func() error) {
+	if runner == nil {
+		manualTestRunner = RunCrossPlatformManualTests
+		return
+	}
+	manualTestRunner = runner
+}
+
+func SetDevContainerDetectorForTests(detector func() bool) {
+	if detector == nil {
+		devContainerDetector = isDevContainerSession
+		return
+	}
+	devContainerDetector = detector
+}
+
+func isDevContainerSession() bool {
+	if os.Getenv("REMOTE_CONTAINERS") != "" {
+		return true
+	}
+	if os.Getenv("VSCODE_REMOTE_CONTAINERS_SESSION") != "" {
+		return true
+	}
+	if os.Getenv("DEVCONTAINER") != "" {
+		return true
+	}
+	if container := strings.ToLower(strings.TrimSpace(os.Getenv("container"))); container == "docker" || container == "podman" {
+		return true
+	}
+	return false
+}
+
+func validateWSLExecutionContext() error {
+	if devContainerDetector() {
+		return fmt.Errorf("backup CLI must run from a WSL window, not from a Dev Container")
+	}
+
+	runtime := runtimeDetector()
+	if runtime == RuntimeWindows {
+		return fmt.Errorf("backup CLI must run from a WSL window, not from native Windows")
+	}
+	if runtime != RuntimeWSL {
+		return fmt.Errorf("backup CLI must run inside WSL")
+	}
+	return nil
+}
+
 func Usage() string {
 	return strings.Join([]string{
 		"Usage:",
-		"  backup run <daily|weekly|monthly> [--strict-overlap]",
+		"  backup run <daily|weekly|monthly>",
 		"  backup report <daily|weekly|monthly> [new|excluded]",
 		"  backup restore <target>",
+		"  backup test",
 		"  backup help",
 		"  backup --help",
 		"",
@@ -39,30 +89,15 @@ func Usage() string {
 		"",
 		"Run behavior:",
 		"  WSL-only CLI: run executes both wsl and windows profiles in parallel",
-		"  --strict-overlap: fail run if platform include overlap is detected",
+		"  Platform include overlap is validated in strict mode by default",
 		"",
 		"As wsl-sys-cli extension:",
-		"  sys backup run <daily|weekly|monthly> [--strict-overlap]",
+		"  sys backup run <daily|weekly|monthly>",
 		"  sys backup report <daily|weekly|monthly> [new|excluded]",
 		"  sys backup restore <target>",
+		"  sys backup test",
 		"  sys backup --help",
 	}, "\n")
-}
-
-func parseRunOptions(args []string) (bool, error) {
-	if len(args) == 0 {
-		return false, nil
-	}
-	if len(args) > 1 {
-		return false, fmt.Errorf("too many run options")
-	}
-
-	switch args[0] {
-	case "--strict-overlap":
-		return true, nil
-	default:
-		return false, fmt.Errorf("unknown run option: %s", args[0])
-	}
 }
 
 func parseReportOption(args []string) (string, error) {
@@ -111,11 +146,10 @@ func ParseArgs(args []string) (Command, error) {
 		}
 
 		if command == "run" {
-			strictOverlap, err := parseRunOptions(args[2:])
-			if err != nil {
-				return Command{}, err
+			if len(args) > 2 {
+				return Command{}, fmt.Errorf("run does not accept options")
 			}
-			return Command{Name: command, Cadence: cadence, StrictOverlap: strictOverlap}, nil
+			return Command{Name: command, Cadence: cadence}, nil
 		}
 
 		reportOption, err := parseReportOption(args[2:])
@@ -131,6 +165,11 @@ func ParseArgs(args []string) (Command, error) {
 			return Command{}, fmt.Errorf("restore does not accept options")
 		}
 		return Command{Name: command, Target: args[1]}, nil
+	case "test":
+		if len(args) > 1 {
+			return Command{}, fmt.Errorf("test does not accept options")
+		}
+		return Command{Name: command}, nil
 	default:
 		return Command{}, fmt.Errorf("unknown command: %s", command)
 	}
@@ -141,6 +180,9 @@ func Run(command Command, executor Executor) (string, error) {
 	case "help":
 		return Usage(), nil
 	case "run":
+		if err := validateWSLExecutionContext(); err != nil {
+			return "", err
+		}
 		platform := runtimeDetector()
 		plan, err := BuildRunPlan(command.Cadence, platform)
 		if err != nil {
@@ -154,7 +196,7 @@ func Run(command Command, executor Executor) (string, error) {
 			return "", err
 		}
 		warnings := FindPlatformIncludeOverlapWarnings(plan, config)
-		if command.StrictOverlap && len(warnings) > 0 {
+		if len(warnings) > 0 {
 			return "", fmt.Errorf("platform include overlap detected in strict mode\n%s", strings.Join(warnings, "\n"))
 		}
 		invocations, err := BuildResticInvocations(plan, config)
@@ -174,8 +216,8 @@ func Run(command Command, executor Executor) (string, error) {
 		outputLines = append(outputLines, warnings...)
 		return strings.Join(outputLines, "\n"), nil
 	case "report":
-		if runtimeDetector() != RuntimeWSL {
-			return "", fmt.Errorf("backup CLI must run inside WSL")
+		if err := validateWSLExecutionContext(); err != nil {
+			return "", err
 		}
 		switch command.Report {
 		case "new":
@@ -186,6 +228,9 @@ func Run(command Command, executor Executor) (string, error) {
 			return fmt.Sprintf("%s backup report is not implemented yet.", command.Cadence), nil
 		}
 	case "restore":
+		if err := validateWSLExecutionContext(); err != nil {
+			return "", err
+		}
 		platform := runtimeDetector()
 		plan, err := BuildRestorePlan(platform, command.Target)
 		if err != nil {
@@ -207,6 +252,14 @@ func Run(command Command, executor Executor) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf("restore executed for target=%s (steps=%d).", plan.Target, len(results)), nil
+	case "test":
+		if err := validateWSLExecutionContext(); err != nil {
+			return "", err
+		}
+		if err := manualTestRunner(); err != nil {
+			return "", err
+		}
+		return "cross-platform manual integration tests completed (linux then windows).", nil
 	default:
 		return "", fmt.Errorf("unknown command: %s", command.Name)
 	}

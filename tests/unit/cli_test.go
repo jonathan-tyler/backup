@@ -22,18 +22,6 @@ func TestParseArgsRunCommand(t *testing.T) {
 	}
 }
 
-func TestParseArgsRunCommandStrictOverlap(t *testing.T) {
-	t.Parallel()
-
-	command, err := backup.ParseArgs([]string{"run", "daily", "--strict-overlap"})
-	if err != nil {
-		t.Fatalf("ParseArgs returned error: %v", err)
-	}
-	if !command.StrictOverlap {
-		t.Fatalf("expected StrictOverlap=true, got %#v", command)
-	}
-}
-
 func TestParseArgsRunRejectsOptions(t *testing.T) {
 	t.Parallel()
 
@@ -41,7 +29,7 @@ func TestParseArgsRunRejectsOptions(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if err.Error() != "unknown run option: wsl" {
+	if err.Error() != "run does not accept options" {
 		t.Fatalf("unexpected error: %q", err.Error())
 	}
 }
@@ -49,12 +37,24 @@ func TestParseArgsRunRejectsOptions(t *testing.T) {
 func TestParseArgsRunRejectsMultipleOptions(t *testing.T) {
 	t.Parallel()
 
-	_, err := backup.ParseArgs([]string{"run", "daily", "--strict-overlap", "extra"})
+	_, err := backup.ParseArgs([]string{"run", "daily", "extra", "more"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if err.Error() != "too many run options" {
+	if err.Error() != "run does not accept options" {
 		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
+func TestParseArgsTestCommand(t *testing.T) {
+	t.Parallel()
+
+	command, err := backup.ParseArgs([]string{"test"})
+	if err != nil {
+		t.Fatalf("ParseArgs returned error: %v", err)
+	}
+	if command.Name != "test" {
+		t.Fatalf("unexpected command: %#v", command)
 	}
 }
 
@@ -94,6 +94,18 @@ func TestParseArgsRestoreRejectsOptions(t *testing.T) {
 	}
 }
 
+func TestParseArgsTestRejectsOptions(t *testing.T) {
+	t.Parallel()
+
+	_, err := backup.ParseArgs([]string{"test", "--no-pause-between"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != "test does not accept options" {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
 func TestRunCLIHelpCommand(t *testing.T) {
 	t.Parallel()
 
@@ -117,6 +129,7 @@ func TestRunStrictOverlapFailsOnOverlap(t *testing.T) {
 	previousConfig := os.Getenv("BACKUP_CONFIG")
 	previousWSL := os.Getenv("WSL_DISTRO_NAME")
 	t.Cleanup(func() {
+		backup.SetDevContainerDetectorForTests(nil)
 		if previousConfig == "" {
 			_ = os.Unsetenv("BACKUP_CONFIG")
 		} else {
@@ -131,9 +144,10 @@ func TestRunStrictOverlapFailsOnOverlap(t *testing.T) {
 
 	_ = os.Setenv("BACKUP_CONFIG", configPath)
 	_ = os.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+	backup.SetDevContainerDetectorForTests(func() bool { return false })
 
 	executor := &fakeExecutor{}
-	_, err := backup.Run(backup.Command{Name: "run", Cadence: "daily", StrictOverlap: true}, executor)
+	_, err := backup.Run(backup.Command{Name: "run", Cadence: "daily"}, executor)
 	if err == nil {
 		t.Fatal("expected strict overlap error")
 	}
@@ -148,8 +162,10 @@ func TestRunStrictOverlapFailsOnOverlap(t *testing.T) {
 func TestRunReportRequiresWSL(t *testing.T) {
 	t.Cleanup(func() {
 		backup.SetRuntimeDetectorForTests(nil)
+		backup.SetDevContainerDetectorForTests(nil)
 	})
 	backup.SetRuntimeDetectorForTests(func() backup.Runtime { return backup.RuntimeLinux })
+	backup.SetDevContainerDetectorForTests(func() bool { return false })
 
 	_, err := backup.Run(backup.Command{Name: "report", Cadence: "daily", Report: "new"}, backup.SystemExecutor{})
 	if err == nil {
@@ -157,5 +173,94 @@ func TestRunReportRequiresWSL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "must run inside WSL") {
 		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
+func TestRunReportRejectsDevContainerSession(t *testing.T) {
+	t.Cleanup(func() {
+		backup.SetRuntimeDetectorForTests(nil)
+		backup.SetDevContainerDetectorForTests(nil)
+	})
+
+	backup.SetRuntimeDetectorForTests(func() backup.Runtime { return backup.RuntimeWSL })
+	backup.SetDevContainerDetectorForTests(func() bool { return true })
+
+	_, err := backup.Run(backup.Command{Name: "report", Cadence: "daily", Report: "new"}, backup.SystemExecutor{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not from a Dev Container") {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
+func TestRunReportRejectsNativeWindows(t *testing.T) {
+	t.Cleanup(func() {
+		backup.SetRuntimeDetectorForTests(nil)
+		backup.SetDevContainerDetectorForTests(nil)
+	})
+	backup.SetRuntimeDetectorForTests(func() backup.Runtime { return backup.RuntimeWindows })
+	backup.SetDevContainerDetectorForTests(func() bool { return false })
+
+	_, err := backup.Run(backup.Command{Name: "report", Cadence: "daily", Report: "new"}, backup.SystemExecutor{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not from native Windows") {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
+func TestRunTestRequiresWSL(t *testing.T) {
+	t.Cleanup(func() {
+		backup.SetRuntimeDetectorForTests(nil)
+		backup.SetManualTestRunnerForTests(nil)
+		backup.SetDevContainerDetectorForTests(nil)
+	})
+	backup.SetRuntimeDetectorForTests(func() backup.Runtime { return backup.RuntimeLinux })
+	backup.SetDevContainerDetectorForTests(func() bool { return false })
+
+	runnerCalled := false
+	backup.SetManualTestRunnerForTests(func() error {
+		runnerCalled = true
+		return nil
+	})
+
+	_, err := backup.Run(backup.Command{Name: "test"}, backup.SystemExecutor{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "must run inside WSL") {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+	if runnerCalled {
+		t.Fatal("manual test runner should not be called outside WSL")
+	}
+}
+
+func TestRunTestInvokesRunner(t *testing.T) {
+	t.Cleanup(func() {
+		backup.SetRuntimeDetectorForTests(nil)
+		backup.SetManualTestRunnerForTests(nil)
+		backup.SetDevContainerDetectorForTests(nil)
+	})
+	backup.SetRuntimeDetectorForTests(func() backup.Runtime { return backup.RuntimeWSL })
+	backup.SetDevContainerDetectorForTests(func() bool { return false })
+
+	runnerCalled := false
+	backup.SetManualTestRunnerForTests(func() error {
+		runnerCalled = true
+		return nil
+	})
+
+	output, err := backup.Run(backup.Command{Name: "test"}, backup.SystemExecutor{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !runnerCalled {
+		t.Fatal("expected manual test runner call")
+	}
+	if !strings.Contains(output, "linux then windows") {
+		t.Fatalf("unexpected output: %q", output)
 	}
 }

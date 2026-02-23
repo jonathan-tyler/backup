@@ -31,6 +31,21 @@
             },
             "group": "test",
             "problemMatcher": []
+        },
+        {
+            "label": "cross-platform-test",
+            "type": "shell",
+            "command": "go",
+            "args": [
+                "run",
+                ".",
+                "test"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
         }
     ]
 }

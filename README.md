@@ -42,31 +42,33 @@ backup --help
 Run the CLI directly as `backup`.
 
 ```text
-backup run <daily|weekly|monthly> [--strict-overlap]
+backup run <daily|weekly|monthly>
 backup report <daily|weekly|monthly> [new|excluded]
 backup restore <target>
+backup test
 backup help
 backup --help
 ```
 
 Platform behavior:
 
-- This CLI is WSL-only and must be launched from WSL.
+- This CLI is WSL-only and must be launched from a WSL window.
+- Running from a Dev Container window or native Windows returns an error.
 - In WSL, `backup run <cadence>` executes `wsl` and `windows` profiles in parallel.
 - When WSL runs both platforms, the CLI warns if include paths appear to overlap across profiles
   (for example `/mnt/c/Users/...` and `C:\Users\...`).
 - You can translate/compare path forms with `wslpath <path>` and `wslpath -w <path>`.
-- Use `--strict-overlap` to fail the run when overlap is detected.
+- Overlap verification runs in strict mode by default; runs fail when overlap is detected.
 
 Examples:
 
 ```sh
 backup run daily
-backup run daily --strict-overlap
 backup report weekly
 backup report weekly new
 backup report weekly excluded
 backup restore /path/to/target
+backup test
 ```
 
 ## Usage (wsl-sys-cli Extension)
@@ -75,11 +77,11 @@ When installed as an extension for `wsl-sys-cli`, run the same arguments through
 
 ```sh
 sys backup run daily
-sys backup run daily --strict-overlap
 sys backup report weekly
 sys backup report weekly new
 sys backup report weekly excluded
 sys backup restore /path/to/target
+sys backup test
 sys backup --help
 ```
 
@@ -121,7 +123,6 @@ ls -lh out/
 Generated artifacts:
 
 - `out/backup-linux-amd64`
-- `out/backup-windows-amd64.exe`
 - `out/manual-itest-linux-amd64`
 - `out/manual-itest-windows-amd64.exe`
 
@@ -145,9 +146,13 @@ Start testing from WSL with:
 go test ./tests/unit/...
 go test -tags=integration ./tests/integration/...
 tests/manual/run_manual_integration_tests.sh
+backup test
 ```
 
 For cross-platform validation, keep launching tests from WSL so one CLI orchestrates both platforms.
+
+`backup test` runs Linux manual integration tests first, then Windows manual integration tests, and
+pauses between phases.
 
 Update to the newest cross-available version (dnf latest that matches scoop manifest):
 
