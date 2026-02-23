@@ -664,13 +664,20 @@ func TestIntegrationRestoreLatest(t *testing.T) {
 		t.Fatalf("write config file: %v", writeErr)
 	}
 	previousConfig := os.Getenv("BACKUP_CONFIG")
+	previousWSL := os.Getenv("WSL_DISTRO_NAME")
 	_ = os.Setenv("BACKUP_CONFIG", configPath)
+	_ = os.Setenv("WSL_DISTRO_NAME", "integration")
 	defer func() {
 		if previousConfig == "" {
 			_ = os.Unsetenv("BACKUP_CONFIG")
+		} else {
+			_ = os.Setenv("BACKUP_CONFIG", previousConfig)
+		}
+		if previousWSL == "" {
+			_ = os.Unsetenv("WSL_DISTRO_NAME")
 			return
 		}
-		_ = os.Setenv("BACKUP_CONFIG", previousConfig)
+		_ = os.Setenv("WSL_DISTRO_NAME", previousWSL)
 	}()
 
 	backupBinary := os.Getenv("BACKUP_BINARY")

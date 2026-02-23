@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 type Executor interface {
@@ -27,13 +28,31 @@ type ExecutionResult struct {
 }
 
 func ExecuteResticInvocations(invocations []ResticInvocation, executor Executor) ([]ExecutionResult, error) {
-	results := make([]ExecutionResult, 0, len(invocations))
-	for _, invocation := range invocations {
-		output, err := executor.Run(invocation.Executable, invocation.Args...)
-		if err != nil {
-			return nil, fmt.Errorf("%s invocation failed: %w", invocation.Target, err)
-		}
-		results = append(results, ExecutionResult{Target: invocation.Target, Output: output})
+	results := make([]ExecutionResult, len(invocations))
+	errors := make([]error, len(invocations))
+
+	var waitGroup sync.WaitGroup
+	for invocationIndex := range invocations {
+		waitGroup.Add(1)
+		go func(index int) {
+			defer waitGroup.Done()
+			invocation := invocations[index]
+			output, err := executor.Run(invocation.Executable, invocation.Args...)
+			if err != nil {
+				errors[index] = err
+				return
+			}
+			results[index] = ExecutionResult{Target: invocation.Target, Output: output}
+		}(invocationIndex)
 	}
+
+	waitGroup.Wait()
+
+	for invocationIndex := range errors {
+		if errors[invocationIndex] != nil {
+			return nil, fmt.Errorf("%s invocation failed: %w", invocations[invocationIndex].Target, errors[invocationIndex])
+		}
+	}
+
 	return results, nil
 }

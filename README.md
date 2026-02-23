@@ -42,17 +42,27 @@ backup --help
 Run the CLI directly as `backup`.
 
 ```text
-backup run <daily|weekly|monthly>
+backup run <daily|weekly|monthly> [--strict-overlap]
 backup report <daily|weekly|monthly> [new|excluded]
 backup restore <target>
 backup help
 backup --help
 ```
 
+Platform behavior:
+
+- This CLI is WSL-only and must be launched from WSL.
+- In WSL, `backup run <cadence>` executes `wsl` and `windows` profiles in parallel.
+- When WSL runs both platforms, the CLI warns if include paths appear to overlap across profiles
+  (for example `/mnt/c/Users/...` and `C:\Users\...`).
+- You can translate/compare path forms with `wslpath <path>` and `wslpath -w <path>`.
+- Use `--strict-overlap` to fail the run when overlap is detected.
+
 Examples:
 
 ```sh
 backup run daily
+backup run daily --strict-overlap
 backup report weekly
 backup report weekly new
 backup report weekly excluded
@@ -65,6 +75,7 @@ When installed as an extension for `wsl-sys-cli`, run the same arguments through
 
 ```sh
 sys backup run daily
+sys backup run daily --strict-overlap
 sys backup report weekly
 sys backup report weekly new
 sys backup report weekly excluded
@@ -114,7 +125,8 @@ Generated artifacts:
 - `out/manual-itest-linux-amd64`
 - `out/manual-itest-windows-amd64.exe`
 
-For Windows manual testing, open this repo in Windows VS Code and run the Windows artifact directly.
+Primary workflow is WSL-first with one installed `backup` entrypoint in WSL and `restic` installed in
+both WSL and Windows. Do not run this CLI from native Windows.
 
 Install/pin `restic` across WSL Fedora and Windows (Scoop) with repo canonical pin:
 
@@ -126,6 +138,16 @@ scripts/install_restic_wsl_fedora.sh
 
 This WSL-first script validates that the pinned version exists in both `dnf` and `scoop.exe`,
 installs both Linux and Windows restic to that version, and scaffolds config/rules files when missing.
+
+Start testing from WSL with:
+
+```sh
+go test ./tests/unit/...
+go test -tags=integration ./tests/integration/...
+tests/manual/run_manual_integration_tests.sh
+```
+
+For cross-platform validation, keep launching tests from WSL so one CLI orchestrates both platforms.
 
 Update to the newest cross-available version (dnf latest that matches scoop manifest):
 
@@ -148,8 +170,7 @@ change and loop/cycle risk must be evaluated separately.
 
 ## Configuration (Scaffold)
 
-- Default config path in WSL/Linux: `~/.config/backup/config.yaml`
-- Default config path in Windows: `%APPDATA%\\backup\\config.yaml`
+- Default config path in WSL: `~/.config/backup/config.yaml`
 - Optional override for both: `BACKUP_CONFIG=/custom/path/config.yaml`
 - Starter template: [config.example.yaml](config.example.yaml)
 - Restic pin: `scripts/restic-version.yaml`
@@ -159,4 +180,4 @@ change and loop/cycle risk must be evaluated separately.
 - Optional overrides are available with `include_files` and `exclude_files` in config when needed
 
 Current status: config loading/validation is scaffolded for `run` planning only.
-Backup execution is not implemented yet.
+`run daily` executes planned restic invocations when config exists; report modes remain scaffolded.
