@@ -49,3 +49,26 @@ func BuildResticInvocations(plan RunPlan, config AppConfig) ([]ResticInvocation,
 
 	return invocations, nil
 }
+
+func BuildRestoreInvocation(plan RestorePlan, config AppConfig) (ResticInvocation, error) {
+	profile, ok := config.Profiles[plan.Target]
+	if !ok {
+		return ResticInvocation{}, fmt.Errorf("missing profile config: %s", plan.Target)
+	}
+	if profile.RepositoryHint == "" {
+		return ResticInvocation{}, fmt.Errorf("missing repository for target: %s", plan.Target)
+	}
+
+	args := []string{"-r", profile.RepositoryHint, "restore", "latest", "--target", plan.RestoreTarget}
+
+	executable := "restic"
+	if plan.Target == "windows" {
+		executable = "restic.exe"
+	}
+
+	return ResticInvocation{
+		Target:     plan.Target,
+		Executable: executable,
+		Args:       args,
+	}, nil
+}

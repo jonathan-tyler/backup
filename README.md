@@ -81,9 +81,22 @@ go build ./...
 
 Integration tests (tagged):
 
+- Full integration suite:
+
 ```sh
 go test ./tests/unit/...
 go test -tags=integration ./tests/integration/...
+```
+
+- Targeted restore-only integration check (faster while iterating on restore):
+
+```sh
+go test -tags=integration -run TestIntegrationRestoreLatest -v ./tests/integration/...
+```
+
+- Manifest pause mode for manual inspection:
+
+```sh
 BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationManifestAllCases -v ./tests/integration/...
 ```
 

@@ -64,12 +64,12 @@ try {
     }
 
     Write-Host ""
-    Write-Host "Running consolidated integration manifest test with pause setting BACKUP_ITEST_PAUSE=$($env:BACKUP_ITEST_PAUSE)"
+    Write-Host "Running manual integration tests (manifest + restore) with pause setting BACKUP_ITEST_PAUSE=$($env:BACKUP_ITEST_PAUSE)"
     Write-Host "Using backup binary: $($env:BACKUP_BINARY)"
     Write-Host "Using integration test binary: $($env:TEST_BINARY)"
     Write-Host ""
 
-    & $env:TEST_BINARY -test.v -test.run TestIntegrationManifestAllCases
+    & $env:TEST_BINARY -test.v -test.run 'TestIntegrationManifestAllCases|TestIntegrationRestoreLatest'
 }
 finally {
     Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue

@@ -43,6 +43,30 @@ func TestParseArgsReportModes(t *testing.T) {
 	}
 }
 
+func TestParseArgsRestoreCommand(t *testing.T) {
+	t.Parallel()
+
+	command, err := backup.ParseArgs([]string{"restore", "/tmp/restore"})
+	if err != nil {
+		t.Fatalf("ParseArgs returned error: %v", err)
+	}
+	if command.Name != "restore" || command.Target != "/tmp/restore" {
+		t.Fatalf("unexpected command: %#v", command)
+	}
+}
+
+func TestParseArgsRestoreRejectsOptions(t *testing.T) {
+	t.Parallel()
+
+	_, err := backup.ParseArgs([]string{"restore", "/tmp/restore", "extra"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != "restore does not accept options" {
+		t.Fatalf("unexpected error: %q", err.Error())
+	}
+}
+
 func TestRunCLIHelpCommand(t *testing.T) {
 	t.Parallel()
 

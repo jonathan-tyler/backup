@@ -48,9 +48,9 @@ if [[ -z "${RESTIC_PASSWORD:-}" ]]; then
 fi
 
 echo
-echo "Running consolidated integration manifest test with pause setting BACKUP_ITEST_PAUSE=${BACKUP_ITEST_PAUSE}"
+echo "Running manual integration tests (manifest + restore) with pause setting BACKUP_ITEST_PAUSE=${BACKUP_ITEST_PAUSE}"
 echo "Using backup binary: ${BACKUP_BINARY}"
 echo "Using integration test binary: ${TEST_BINARY}"
 echo
 
-"${TEST_BINARY}" -test.v -test.run TestIntegrationManifestAllCases
+"${TEST_BINARY}" -test.v -test.run 'TestIntegrationManifestAllCases|TestIntegrationRestoreLatest'

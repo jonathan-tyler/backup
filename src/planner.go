@@ -19,6 +19,11 @@ type RunPlan struct {
 	Targets []string
 }
 
+type RestorePlan struct {
+	Target        string
+	RestoreTarget string
+}
+
 func DetectRuntime() Runtime {
 	if os.Getenv("WSL_DISTRO_NAME") != "" {
 		return RuntimeWSL
@@ -47,5 +52,20 @@ func BuildRunPlan(cadence string, runtime Runtime) (RunPlan, error) {
 		return RunPlan{Cadence: cadence, Targets: []string{"wsl"}}, nil
 	default:
 		return RunPlan{}, fmt.Errorf("unknown runtime: %s", runtime)
+	}
+}
+
+func BuildRestorePlan(runtime Runtime, restoreTarget string) (RestorePlan, error) {
+	if strings.TrimSpace(restoreTarget) == "" {
+		return RestorePlan{}, fmt.Errorf("missing target")
+	}
+
+	switch runtime {
+	case RuntimeWindows:
+		return RestorePlan{Target: "windows", RestoreTarget: restoreTarget}, nil
+	case RuntimeWSL, RuntimeLinux:
+		return RestorePlan{Target: "wsl", RestoreTarget: restoreTarget}, nil
+	default:
+		return RestorePlan{}, fmt.Errorf("unknown runtime: %s", runtime)
 	}
 }

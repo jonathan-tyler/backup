@@ -596,6 +596,106 @@ func runCase(t *testing.T, caseName string, mutate func(t *testing.T, fixture *i
 	runFixtureCase(t, fixture, allowPause)
 }
 
+func directoryHasFiles(path string) (bool, error) {
+	found := false
+	err := filepath.WalkDir(path, func(current string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if current == path {
+			return nil
+		}
+		if !entry.IsDir() {
+			found = true
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	if err != nil && err != filepath.SkipDir {
+		return false, err
+	}
+	return found, nil
+}
+
+func TestIntegrationRestoreLatest(t *testing.T) {
+	target, resticPath := resolveTargetAndRestic(t)
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "repo")
+	dataDir := filepath.Join(tempDir, "data")
+	restoreDir := filepath.Join(tempDir, "restore-target")
+
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatalf("mkdir data dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "restore-me.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+	if err := os.MkdirAll(restoreDir, 0o755); err != nil {
+		t.Fatalf("mkdir restore dir: %v", err)
+	}
+
+	_ = os.Setenv("RESTIC_PASSWORD", "integration-test-password")
+	defer func() { _ = os.Unsetenv("RESTIC_PASSWORD") }()
+
+	_, err := backup.ExecuteResticInvocations([]backup.ResticInvocation{{
+		Target:     target,
+		Executable: resticPath,
+		Args:       []string{"-r", repoDir, "init"},
+	}}, backup.SystemExecutor{})
+	if err != nil {
+		t.Fatalf("restic init failed: %v", err)
+	}
+
+	_, err = backup.ExecuteResticInvocations([]backup.ResticInvocation{{
+		Target:     target,
+		Executable: resticPath,
+		Args:       []string{"-r", repoDir, "backup", dataDir},
+	}}, backup.SystemExecutor{})
+	if err != nil {
+		t.Fatalf("restic backup failed: %v", err)
+	}
+
+	profile := "wsl"
+	if target == "windows" {
+		profile = "windows"
+	}
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if writeErr := writeTestConfig(configPath, profile, repoDir, []string{dataDir}, []string{}, false); writeErr != nil {
+		t.Fatalf("write config file: %v", writeErr)
+	}
+	previousConfig := os.Getenv("BACKUP_CONFIG")
+	_ = os.Setenv("BACKUP_CONFIG", configPath)
+	defer func() {
+		if previousConfig == "" {
+			_ = os.Unsetenv("BACKUP_CONFIG")
+			return
+		}
+		_ = os.Setenv("BACKUP_CONFIG", previousConfig)
+	}()
+
+	backupBinary := os.Getenv("BACKUP_BINARY")
+	if backupBinary != "" {
+		command := exec.Command(backupBinary, "restore", restoreDir)
+		commandOutput, commandErr := command.CombinedOutput()
+		if commandErr != nil {
+			t.Fatalf("backup binary restore failed: %v (%s)", commandErr, strings.TrimSpace(string(commandOutput)))
+		}
+	} else {
+		_, runErr := backup.Run(backup.Command{Name: "restore", Target: restoreDir}, backup.SystemExecutor{})
+		if runErr != nil {
+			t.Fatalf("backup restore run failed: %v", runErr)
+		}
+	}
+
+	hasFiles, scanErr := directoryHasFiles(restoreDir)
+	if scanErr != nil {
+		t.Fatalf("scan restore output failed: %v", scanErr)
+	}
+	if !hasFiles {
+		t.Fatal("restore output did not contain any files")
+	}
+}
+
 func TestIntegrationCaseIncludeExclude(t *testing.T) {
 	runCase(t, "include-exclude", nil, false)
 }

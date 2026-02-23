@@ -95,6 +95,9 @@ func ParseArgs(args []string) (Command, error) {
 		if len(args) < 2 {
 			return Command{}, fmt.Errorf("missing target")
 		}
+		if len(args) > 2 {
+			return Command{}, fmt.Errorf("restore does not accept options")
+		}
 		return Command{Name: command, Target: args[1]}, nil
 	default:
 		return Command{}, fmt.Errorf("unknown command: %s", command)
@@ -140,7 +143,27 @@ func Run(command Command, executor Executor) (string, error) {
 			return fmt.Sprintf("%s backup report is not implemented yet.", command.Cadence), nil
 		}
 	case "restore":
-		return fmt.Sprintf("restore is not implemented yet (target: %s).", command.Target), nil
+		runtime := DetectRuntime()
+		plan, err := BuildRestorePlan(runtime, command.Target)
+		if err != nil {
+			return "", err
+		}
+		config, err := LoadConfig(runtime)
+		if err != nil {
+			return "", err
+		}
+		if !config.Exists {
+			return "", fmt.Errorf("restore requires config file at: %s", config.Path)
+		}
+		invocation, err := BuildRestoreInvocation(plan, config)
+		if err != nil {
+			return "", err
+		}
+		results, err := ExecuteResticInvocations([]ResticInvocation{invocation}, executor)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("restore executed for target=%s (steps=%d).", plan.Target, len(results)), nil
 	default:
 		return "", fmt.Errorf("unknown command: %s", command.Name)
 	}

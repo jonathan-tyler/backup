@@ -97,3 +97,36 @@ func TestBuildResticInvocationsUsesCadencePaths(t *testing.T) {
 		t.Fatalf("unexpected weekly include args: %#v", args)
 	}
 }
+
+func TestBuildRestoreInvocationUsesLatestAndTarget(t *testing.T) {
+	t.Parallel()
+
+	plan := backup.RestorePlan{Target: "wsl", RestoreTarget: "/tmp/restore"}
+	config := backup.AppConfig{Profiles: map[string]backup.ProfileConfig{
+		"wsl": {
+			RepositoryHint: "/repo",
+		},
+	}}
+
+	invocation, err := backup.BuildRestoreInvocation(plan, config)
+	if err != nil {
+		t.Fatalf("BuildRestoreInvocation returned error: %v", err)
+	}
+
+	if invocation.Executable != "restic" {
+		t.Fatalf("expected restic executable, got %q", invocation.Executable)
+	}
+	serialized := fmt.Sprintf("%q", invocation.Args)
+	if serialized == "" {
+		t.Fatal("expected invocation args")
+	}
+	if len(invocation.Args) < 6 {
+		t.Fatalf("unexpected restore args: %#v", invocation.Args)
+	}
+	if invocation.Args[0] != "-r" || invocation.Args[2] != "restore" || invocation.Args[3] != "latest" {
+		t.Fatalf("unexpected restore args: %#v", invocation.Args)
+	}
+	if invocation.Args[4] != "--target" || invocation.Args[5] != "/tmp/restore" {
+		t.Fatalf("unexpected restore target args: %#v", invocation.Args)
+	}
+}
