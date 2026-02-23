@@ -27,6 +27,7 @@
         // Optional: enable this mount locally if you have a host starship config.
         "type=bind,source=${localEnv:HOME}/.config/starship.toml,target=/home/developer/.config/starship.toml,readonly"
     ],
+    "postCreateCommand": "[ -f /tmp/.zsh_history ] && cp /tmp/.zsh_history /home/developer/.zsh_history || true",
     "customizations": {
         "vscode": {
             "extensions": [
