@@ -1,66 +1,50 @@
 # WSL Backup
 
-Simple wrapper around `restic`. Extension for `wsl-sys-cli`.
+Thin, predictable wrapper around `restic`, designed for WSL-first workflows and usable as a `wsl-sys-cli` extension.
 
-## Focus
+## What it does
 
-- WSL-first: launch from WSL and output to Windows filesystem
-- Developed as an extension for wsl-sys-cli
-- Denylist approach via exclude & include lists
-- Daily, weekly, monthly commands with different retention policies
-- Diff report for new items and another for excluded items
-- Integration with keepass-xc
-
-## Development Features
-
-- Dev container for deterministic environment automation and isolation
-- Test sandbox
-- Unit & integration tests
-
-### Optional Starship Host Config in Dev Container
-
-If you personally use Starship and want to reuse your host `starship.toml`, uncomment the optional mount
-line in [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json).
+- Runs from WSL and targets cross-platform backup flows (WSL + Windows)
+- Uses include/exclude rule files with daily, weekly, and monthly cadences
+- Parses report modes (`new`, `excluded`) with placeholder output (not implemented yet)
+- Enforces overlap safety checks across profile include paths
+- Includes unit, integration, and manual test paths for cross-platform behavior
 
 ## Installation
-
-Build and install the executable as `backup`:
 
 ```sh
 go build -o backup .
 sudo install -m 0755 backup /usr/local/bin/backup
 ```
 
-Verify:
+Pin/install `restic` for both WSL Fedora and Windows (Scoop):
 
 ```sh
-backup --help
+scripts/install_restic_wsl_fedora.sh
 ```
 
-## Usage (Standalone Executable)
+The install script validates the pinned version from `scripts/restic-version.yaml` in both package managers, installs both binaries, and scaffolds config/rules files when missing.
 
-Run the CLI directly as `backup`.
+## Configuration
 
-```text
-backup run <daily|weekly|monthly>
-backup report <daily|weekly|monthly> [new|excluded]
-backup restore <target>
-backup test
-backup help
-backup --help
-```
+- Default config path: `${XDG_CONFIG_HOME:-~/.config}/backup/config.yaml`
+- Optional config override: `BACKUP_CONFIG=/path/to/config.yaml`
+- Starter config: [config.example.yaml](config.example.yaml)
+- Rule file directory: `~/.config/backup/rules/` (next to config)
+- Rule naming: `<profile>.<include|exclude>.<daily|weekly|monthly>.txt`
+- Rule format: one path per line (`#` comments allowed)
+- Optional per-config overrides: `include_files`, `exclude_files`
 
-Platform behavior:
+## Usage
 
-- This CLI is WSL-only and must be launched from a WSL window.
-- Running from a Dev Container window or native Windows returns an error.
-- In WSL, `backup run <cadence>` executes `wsl` and `windows` profiles in parallel.
-- When WSL runs both platforms, the CLI warns if include paths appear to overlap across profiles
-  (for example `/mnt/c/Users/...` and `C:\Users\...`).
-- You can translate/compare path forms with `wslpath <path>` and `wslpath -w <path>`.
-- Overlap verification runs in strict mode by default; runs fail when overlap is detected.
-
-Examples:
+- This CLI is WSL-only; run it from a WSL shell (not from native Windows or a Dev Container).
+- `backup run <cadence>` runs `wsl` and `windows` profiles in parallel.
+- Include overlap checks are strict by default and fail the run when overlap is detected.
+- Current execution status:
+  - `backup run daily` executes restic for both profiles only when config exists and is valid.
+  - `backup run weekly|monthly` currently returns scaffold-only output.
+  - `backup report ...` modes currently return not-implemented messages.
+  - `backup restore <target>` executes `restic restore latest --target <target>` for the WSL profile and requires a config file.
 
 ```sh
 backup run daily
@@ -71,19 +55,7 @@ backup restore /path/to/target
 backup test
 ```
 
-## Usage (wsl-sys-cli Extension)
-
-When installed as an extension for `wsl-sys-cli`, run the same arguments through `sys backup`.
-
-```sh
-sys backup run daily
-sys backup report weekly
-sys backup report weekly new
-sys backup report weekly excluded
-sys backup restore /path/to/target
-sys backup test
-sys backup --help
-```
+If installed through `wsl-sys-cli`, run the same commands as `sys backup ...`.
 
 ## Development
 
@@ -92,97 +64,18 @@ go test ./...
 go build ./...
 ```
 
-Integration tests (tagged):
-
-- Full integration suite:
+Integration tests:
 
 ```sh
 go test ./tests/unit/...
 go test -tags=integration ./tests/integration/...
 ```
 
-- Targeted restore-only integration check (faster while iterating on restore):
+Manual integration tests:
 
-```sh
-go test -tags=integration -run TestIntegrationRestoreLatest -v ./tests/integration/...
-```
+- Run `backup test` from WSL.
+- Linux manual tests run first, then Windows manual tests, with a review pause between phases.
 
-- Manifest pause mode for manual inspection:
+## Notes
 
-```sh
-BACKUP_ITEST_PAUSE=1 go test -tags=integration -run TestIntegrationManifestAllCases -v ./tests/integration/...
-```
-
-Build output binaries in `out/` (ignored by git):
-
-```sh
-tests/manual/build_binaries.sh
-ls -lh out/
-```
-
-Generated artifacts:
-
-- `out/backup-linux-amd64`
-- `out/manual-itest-linux-amd64`
-- `out/manual-itest-windows-amd64.exe`
-
-Primary workflow is WSL-first with one installed `backup` entrypoint in WSL and `restic` installed in
-both WSL and Windows. Do not run this CLI from native Windows.
-
-Install/pin `restic` across WSL Fedora and Windows (Scoop) with repo canonical pin:
-
-- Canonical repo pin: `scripts/restic-version.yaml`
-
-```sh
-scripts/install_restic_wsl_fedora.sh
-```
-
-This WSL-first script validates that the pinned version exists in both `dnf` and `scoop.exe`,
-installs both Linux and Windows restic to that version, and scaffolds config/rules files when missing.
-
-Start testing from WSL with:
-
-```sh
-go test ./tests/unit/...
-go test -tags=integration ./tests/integration/...
-tests/manual/run_manual_integration_tests.sh
-backup test
-```
-
-For cross-platform validation, keep launching tests from WSL so one CLI orchestrates both platforms.
-
-`backup test` runs Linux manual integration tests first, then Windows manual integration tests, and
-pauses between phases.
-
-Update to the newest cross-available version (dnf latest that matches scoop manifest):
-
-```sh
-scripts/update_restic_version.sh
-```
-
-This updates `scripts/restic-version.yaml`, and then runs
-`scripts/install_restic_wsl_fedora.sh`.
-
-Manual integration scripts in `tests/manual/` use prebuilt binaries from `out/` and pass `BACKUP_BINARY`
-into integration tests. If `go` is available, they build fresh artifacts automatically before running.
-If `go` is not available, they require existing `out/` artifacts and warn that prebuilt binaries may be
-out of date; build first in the dev container with `tests/manual/build_binaries.sh` when needed.
-
-Link behavior note: restic archives symlinks as symlinks by default and does not follow them during
-backup. This project relies on that default behavior to avoid recursive traversal issues from symlink
-loops. If follow-symlink behavior is enabled explicitly in a restic invocation, link traversal semantics
-change and loop/cycle risk must be evaluated separately.
-
-## Configuration (Scaffold)
-
-- Default config path in WSL: `~/.config/backup/config.yaml`
-- Optional override for both: `BACKUP_CONFIG=/custom/path/config.yaml`
-- Starter template: [config.example.yaml](config.example.yaml)
-- Restic pin: `scripts/restic-version.yaml`
-- Rule files are auto-discovered next to config in `rules/` using this naming pattern:
- `<profile>.<include|exclude>.<daily|weekly|monthly>.txt`
-- Rule files use one path per line (`#` comments allowed)
-- Optional overrides are available with `include_files` and `exclude_files` in config when needed
-
-Current status: config loading/validation is scaffolded for `run` planning only.
-`run daily` executes planned restic invocations when config exists; report modes remain scaffolded.
+`restic` stores symlinks as symlinks by default and does not follow them during backup. This behavior helps avoid recursive traversal from link loops. If symlink following is enabled explicitly in a restic invocation, traversal/loop risk must be evaluated separately.
