@@ -1,8 +1,8 @@
 # Copy to ~/.config/backup/config.yaml (WSL/Linux)
 # or %APPDATA%\backup\config.yaml (Windows).
 #
-# This file is scaffolding for upcoming execution support.
-# Current CLI validates profile presence but does not execute backups yet.
+# This sample is used by the installer scaffold and as a starting point.
+# Daily runs can execute backups when config is present and valid.
 
 profiles:
   wsl:
